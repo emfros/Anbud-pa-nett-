@@ -17,7 +17,8 @@ Nettside der Storebrand lager anbud på byggskader, leverandører gir pris med e
 5. **Bare oppdiktede data** til IT i Storebrand har godkjent løsningen.
 6. **Utseende:** Storebrand-layout (røde farger, Schibsted Grotesk innebygd i filen, Storebrand-logo). Bare lyst tema. Tabelltall (`tabular-nums`) brukes bare på kronebeløp, fordi fonten ellers gjør punktum og komma brede.
 7. **Filen skal fungere alene.** Behold `<!doctype html>` og `<meta charset="utf-8">` øverst, ellers blir siden blank når den åpnes som fil i Safari.
-8. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør leverer, saksbehandler tildeler, årsoversikt) på mobil- og PC-bredde, uten feil i konsollen.
+8. **Felt som må stemme overens:** `ANBUD_FELT` i `index.html` må ha de samme feltene som tabellen `anbud` i `oppsett.sql`. Feltene som kan endres etter utsending (`ENDRES_ETTER_UTSENDING`) må stemme med låsen i `anbud_vakt`. De faste kravene (`FASTE_KRAV`) og standard tildelingsregel (`STD_TILDELING`) ligger i `index.html`.
+9. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør leverer, saksbehandler tildeler, årsoversikt) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 

@@ -74,8 +74,23 @@ create table public.anbud (
   skadenr       text not null,
   adresse       text not null,
   skadetype     text not null,
-  beskrivelse   text not null default '',
-  frist         timestamptz not null,
+  tittel        text not null default '',          -- Hva skal anskaffes
+  beskrivelse   text not null default '',          -- Arbeidsomfang
+  saerlige_forhold text not null default '',
+  -- Takstmann og kontakt (vises for leverandørene)
+  takst_navn    text not null default '',
+  takst_firma   text not null default '',
+  takst_epost   text not null default '',
+  takst_tlf     text not null default '',
+  -- Befaring og frister
+  befaring      timestamptz,
+  oppmote       text not null default '',
+  frist_sporsmal date,
+  frist         timestamptz not null,               -- Tilbudsfrist
+  vedstaelse    date,                               -- Hvor lenge leverandøren må stå ved prisen
+  onsket_ferdig text not null default '',
+  tildelingsregel text not null default
+    'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.',
   status        text not null default 'utkast'
                 check (status in ('utkast','utsendt','tildelt','avlyst')),
   -- [{id, navn, poster:[{id, fag, beskrivelse, mengde, enhet}]}]
@@ -111,7 +126,12 @@ create table public.tilbud (
   telefon       text,
   epost         text,
   priser        jsonb not null,        -- {"<post-id>": enhetspris eks. mva}
-  forbehold     text not null default '',
+  forbehold     text not null default '',              -- Generelle forbehold
+  forbehold_bygg jsonb not null default '{}'::jsonb,  -- {"<bygg-id>": "forbehold for dette bygget"}
+  byggetid_uker numeric(6,1) not null,
+  oppstart      date not null,
+  timepris      numeric(10,2) not null,              -- For tilleggsarbeid, eks. mva
+  bekreftet     boolean not null default false,
   sum_eks_mva   numeric(14,2) not null,
   levert        timestamptz not null default now(),
   antall_innsendinger int not null default 1
@@ -183,9 +203,33 @@ begin
     raise exception 'Poster og kalkyle er låst etter at anbudet er sendt ut.';
   end if;
 
+  -- Vilkårene leverandørene har priset etter, låses også. Frister, befaring og kontaktinfo kan endres.
+  if old.status <> 'utkast' and
+     (new.skadenr, new.adresse, new.skadetype, new.tittel, new.beskrivelse, new.saerlige_forhold,
+      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel)
+     is distinct from
+     (old.skadenr, old.adresse, old.skadetype, old.tittel, old.beskrivelse, old.saerlige_forhold,
+      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel) then
+    raise exception 'Beskrivelse og vilkår er låst etter at anbudet er sendt ut.';
+  end if;
+
+  if new.vedstaelse is not null and new.vedstaelse < (new.frist at time zone 'Europe/Oslo')::date then
+    raise exception 'Vedståelsesfristen kan ikke være før tilbudsfristen.';
+  end if;
+  if new.frist_sporsmal is not null and new.frist_sporsmal > (new.frist at time zone 'Europe/Oslo')::date then
+    raise exception 'Frist for spørsmål må være før tilbudsfristen.';
+  end if;
+
   if old.status = 'utkast' and new.status = 'utsendt' then
     if new.kalkyle_sum is null or jsonb_array_length(new.bygg) = 0 then
       raise exception 'Legg inn poster og kalkyle før du sender ut.';
+    end if;
+    if btrim(new.tittel) = '' or btrim(new.beskrivelse) = ''
+       or btrim(new.takst_navn) = '' or btrim(new.takst_epost) = '' or new.vedstaelse is null then
+      raise exception 'Fyll inn hva som skal anskaffes, arbeidsomfang, takstmann, e-post og vedståelsesfrist før du sender ut.';
+    end if;
+    if new.frist <= now() then
+      raise exception 'Tilbudsfristen må være frem i tid.';
     end if;
     new.utsendt := now();
   end if;
@@ -287,11 +331,17 @@ begin
     'aapen', a.status = 'utsendt' and now() < a.frist,
     'anbud', jsonb_build_object(              -- NB: ingen kalkyle her
       'skadenr', a.skadenr, 'adresse', a.adresse, 'skadetype', a.skadetype,
-      'beskrivelse', a.beskrivelse, 'frist', a.frist, 'bygg', a.bygg),
+      'tittel', a.tittel, 'beskrivelse', a.beskrivelse, 'saerlige_forhold', a.saerlige_forhold,
+      'takst_navn', a.takst_navn, 'takst_firma', a.takst_firma, 'takst_epost', a.takst_epost, 'takst_tlf', a.takst_tlf,
+      'befaring', a.befaring, 'oppmote', a.oppmote, 'frist_sporsmal', a.frist_sporsmal,
+      'frist', a.frist, 'vedstaelse', a.vedstaelse, 'onsket_ferdig', a.onsket_ferdig,
+      'tildelingsregel', a.tildelingsregel, 'bygg', a.bygg),
     'tilbud', case when t.invitasjon_id is null then null else jsonb_build_object(
       'firmanavn', t.firmanavn, 'orgnr', t.orgnr, 'kontakt', t.kontakt,
       'telefon', t.telefon, 'epost', t.epost, 'priser', t.priser,
-      'forbehold', t.forbehold, 'sum_eks_mva', t.sum_eks_mva, 'levert', t.levert) end
+      'forbehold', t.forbehold, 'forbehold_bygg', t.forbehold_bygg,
+      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris,
+      'bekreftet', t.bekreftet, 'sum_eks_mva', t.sum_eks_mva, 'levert', t.levert) end
   );
 end $$;
 
@@ -303,6 +353,8 @@ declare
   total numeric := 0; v_priser jsonb := '{}'::jsonb; mangler int := 0;
   v_orgnr text := regexp_replace(coalesce(p_tilbud->>'orgnr', ''), '\s', '', 'g');
   v_levert timestamptz;
+  v_byggetid numeric; v_timepris numeric; v_oppstart date;
+  v_fb jsonb := '{}'::jsonb; fb_tekst text;
 begin
   inv := tilbud_finn(p_kode);
   if inv.id is null then
@@ -318,6 +370,29 @@ begin
   if not orgnr_gyldig(v_orgnr) then
     return jsonb_build_object('ok', false, 'feil', 'Organisasjonsnummeret er ikke gyldig.');
   end if;
+
+  -- Gjennomføring: byggetid, oppstart og timepris er påkrevd
+  begin v_byggetid := (p_tilbud->>'byggetid_uker')::numeric; exception when others then v_byggetid := null; end;
+  begin v_timepris := (p_tilbud->>'timepris')::numeric;      exception when others then v_timepris := null; end;
+  begin v_oppstart := (p_tilbud->>'oppstart')::date;          exception when others then v_oppstart := null; end;
+  if v_byggetid is null or v_byggetid <= 0 or v_byggetid > 520 then
+    return jsonb_build_object('ok', false, 'feil', 'Oppgi byggetid i uker.');
+  end if;
+  if v_oppstart is null then
+    return jsonb_build_object('ok', false, 'feil', 'Oppgi når dere kan starte.');
+  end if;
+  if v_timepris is null or v_timepris < 0 then
+    return jsonb_build_object('ok', false, 'feil', 'Oppgi timepris for tilleggsarbeid.');
+  end if;
+  if coalesce(p_tilbud->'bekreftet' = 'true'::jsonb, false) is not true then
+    return jsonb_build_object('ok', false, 'feil', 'Bekreft at tilbudet følger kravene i anbudet.');
+  end if;
+
+  -- Forbehold per bygg: bare bygg som finnes i anbudet, og bare tekst som ikke er tom
+  for b in select * from jsonb_array_elements(a.bygg) loop
+    fb_tekst := btrim(coalesce(p_tilbud->'forbehold_bygg'->>(b->>'id'), ''));
+    if fb_tekst <> '' then v_fb := v_fb || jsonb_build_object(b->>'id', fb_tekst); end if;
+  end loop;
 
   -- Regn ut summen her, ut fra mengdene i anbudet. Tallet fra nettleseren brukes ikke.
   for b in select * from jsonb_array_elements(a.bygg) loop
@@ -340,14 +415,16 @@ begin
   end if;
 
   insert into tilbud (invitasjon_id, anbud_id, eier, firmanavn, orgnr, kontakt, telefon, epost,
-                      priser, forbehold, sum_eks_mva)
+                      priser, forbehold, forbehold_bygg, byggetid_uker, oppstart, timepris, bekreftet, sum_eks_mva)
   values (inv.id, a.id, a.eier, btrim(p_tilbud->>'firmanavn'), v_orgnr, btrim(p_tilbud->>'kontakt'),
           nullif(btrim(p_tilbud->>'telefon'), ''), nullif(btrim(p_tilbud->>'epost'), ''),
-          v_priser, coalesce(p_tilbud->>'forbehold', ''), total)
+          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_oppstart, v_timepris, true, total)
   on conflict (invitasjon_id) do update set
     firmanavn = excluded.firmanavn, orgnr = excluded.orgnr, kontakt = excluded.kontakt,
     telefon = excluded.telefon, epost = excluded.epost, priser = excluded.priser,
-    forbehold = excluded.forbehold, sum_eks_mva = excluded.sum_eks_mva,
+    forbehold = excluded.forbehold, forbehold_bygg = excluded.forbehold_bygg,
+    byggetid_uker = excluded.byggetid_uker, oppstart = excluded.oppstart, timepris = excluded.timepris,
+    bekreftet = excluded.bekreftet, sum_eks_mva = excluded.sum_eks_mva,
     levert = now(), antall_innsendinger = tilbud.antall_innsendinger + 1
   returning tilbud.levert into v_levert;
 

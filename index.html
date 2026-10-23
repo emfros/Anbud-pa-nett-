@@ -68,7 +68,7 @@ main { max-width: 1100px; margin: 0 auto; padding-block: 24px 80px;
 .stack { display: grid; gap: 10px }
 
 /* skjema */
-label.f { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--n800); min-width: 0 }
+label.f { display: grid; align-content: start; gap: 6px; font-size: 13px; font-weight: 600; color: var(--n800); min-width: 0 }
 input, select, textarea { font: inherit; font-size: 15px; color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-radius: 12px;
   height: 44px; padding: 0 12px; width: 100%; min-width: 0 }
 textarea { height: auto; min-height: 90px; padding: 10px 12px; line-height: 1.5; resize: vertical }
@@ -175,7 +175,43 @@ td.lo { background: var(--ok-50); color: var(--ok); font-weight: 700 }
 .offer .s { text-align: right; font-weight: 700; color: var(--n900) }
 .offer .s .small { font-weight: 600 }
 .offer .meta { grid-column: 2 / -1; font-size: 13px; color: var(--n500); display: flex; gap: 12px; flex-wrap: wrap }
-.offer .meta[style] { color: var(--warn) !important; background: var(--warn-50); padding: 6px 10px; border-radius: 10px }
+.offer .meta.fb { color: var(--warn); background: var(--warn-50); padding: 6px 10px; border-radius: 10px }
+.offer .meta.gj { color: var(--n700) }
+.offer .meta.gj b { color: var(--n900); font-weight: 600 }
+
+/* steg i skjemaet */
+.steg-h { display: grid; gap: 4px }
+.step { font-size: 13px; font-weight: 600; color: var(--red-600) }
+.sub { font-size: 14px; color: var(--n500); font-weight: 400; max-width: 65ch }
+label.f em { font-style: normal; font-weight: 400; color: var(--n500) }
+label.f.full, .grid2 .full { grid-column: 1 / -1 }
+.krav { display: grid; gap: 6px; padding: 14px 16px; background: var(--n50); border-radius: 14px; font-size: 14px }
+.krav strong { color: var(--n800) }
+.krav ul, .krav-liste { margin: 0; padding-left: 20px; display: grid; gap: 4px }
+.krav-liste { font-size: 15px }
+
+/* anbudet slik leverandøren ser det */
+.fakta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 20px; padding-top: 16px; border-top: 1px solid var(--n200) }
+.fakta { display: grid; gap: 2px; min-width: 0 }
+.fakta > span { font-size: 13px; color: var(--n500) }
+.fakta b { font-weight: 600; color: var(--n900); overflow-wrap: anywhere }
+.omfang { white-space: pre-line; max-width: 70ch }
+details.vis-anbud > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap }
+details.vis-anbud > summary::-webkit-details-marker { display: none }
+details.vis-anbud > summary::after { content: "Vis"; margin-left: auto; font-size: 14px; font-weight: 600; color: var(--red-700) }
+details.vis-anbud[open] > summary::after { content: "Skjul" }
+details.vis-anbud:not([open]) { gap: 0 }
+details.vis-anbud .tittel { font-size: 18px }
+tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
+
+/* leverandørskjema */
+.del-h { margin-top: 12px }
+.lev-fb { padding: 12px 16px 16px; border-top: 1px solid var(--n200); background: var(--n50) }
+.med-enhet { display: flex; align-items: center; gap: 8px }
+.med-enhet input { max-width: 160px; text-align: right }
+.med-enhet span { font-size: 13px; color: var(--n500); font-weight: 400; white-space: nowrap }
+.bekreft { display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; background: var(--n0); border: 1px solid var(--n200); border-radius: 16px; font-size: 15px; color: var(--n800); cursor: pointer }
+.bekreft input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--red-600) }
 .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ok-50); color: var(--ok); white-space: nowrap }
 .badge.w { background: var(--warn-50); color: var(--warn) }
 
@@ -259,6 +295,18 @@ const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvcAAABgCAYAAACZg11p
 const SKADETYPER = ['Vannskade', 'Brannskade', 'Stormskade', 'Frostskade', 'Innbrudd/hærverk', 'Råte/sopp', 'Annet'];
 const FAG = ['Rigg og drift', 'Riving/sanering', 'Tømrer', 'Membran', 'Flislegging', 'Maler', 'Gulvlegger', 'Rørlegger', 'Elektriker', 'Murer', 'Ventilasjon', 'Avfall'];
 const ENHETER = ['m²', 'lm', 'stk', 'rs', 't'];
+const FASTE_KRAV = [
+  'Byggetid, oppstart og eventuelle forbehold skal oppgis.',
+  'Timepris for eventuelle tilleggsarbeider skal oppgis.',
+  'Tilleggsarbeid skal godkjennes skriftlig av Storebrand før det utføres. Unntak: akutte tiltak for å hindre at skaden blir større.',
+  'Alle løsninger og materialer skal være anerkjente, i henhold til myndighetskrav og i tråd med god håndverksskikk.',
+  'Entreprenøren er ansvarlig for eventuell byggesøknad.'
+];
+const STD_TILDELING = 'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.';
+// Feltene i et anbud som lagres. Vilkårene låses når anbudet er sendt ut.
+const ANBUD_FELT = ['skadenr', 'adresse', 'skadetype', 'tittel', 'beskrivelse', 'saerlige_forhold', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf',
+  'befaring', 'oppmote', 'frist_sporsmal', 'frist', 'vedstaelse', 'onsket_ferdig', 'tildelingsregel', 'bygg', 'kalkyle', 'kalkyle_sum'];
+const ENDRES_ETTER_UTSENDING = ['befaring', 'oppmote', 'frist_sporsmal', 'frist', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf'];
 
 /* ---------- små hjelpere ---------- */
 const $ = s => document.querySelector(s);
@@ -295,7 +343,15 @@ const sumAnbud = (bygg, priser) => {
 };
 const postNr = (bi, pi) => `${bi + 1}.${pi + 1}`;
 const omEnUke = () => { const d = new Date(Date.now() + 7 * 864e5); d.setHours(12, 0, 0, 0); return d.toISOString(); };
-const tom = () => ({ skadenr: '', adresse: '', skadetype: SKADETYPER[0], beskrivelse: '', frist: omEnUke(),
+// Datoer: «dag» er YYYY-MM-DD i norsk tid
+const dagFra = iso => iso ? tilLokal(iso).slice(0, 10) : '';
+const leggTilDager = (dag, n) => { const d = new Date(dag + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const datoDag = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
+const epostOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trim(v));
+const uker = v => isNum(v) ? nf.format(v) + (v === 1 ? ' uke' : ' uker') : '–';
+const tom = () => ({ skadenr: '', adresse: '', skadetype: SKADETYPER[0], tittel: '', beskrivelse: '', saerlige_forhold: '',
+  takst_navn: '', takst_firma: '', takst_epost: '', takst_tlf: '', befaring: '', oppmote: '', frist_sporsmal: '',
+  frist: omEnUke(), vedstaelse: leggTilDager(dagFra(omEnUke()), 60), onsket_ferdig: '', tildelingsregel: STD_TILDELING,
   bygg: [{ id: nyId('b'), navn: 'Bolighus', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }], kalkyle: {}, status: 'utkast' });
 
 /* =====================================================================
@@ -337,11 +393,11 @@ function supabaseApi(sb) {
       return { anbud, invitasjoner, tilbud };
     },
     async lagreAnbud(x) {
-      const felt = { skadenr: x.skadenr, adresse: x.adresse, skadetype: x.skadetype, beskrivelse: x.beskrivelse, frist: x.frist, bygg: x.bygg, kalkyle: x.kalkyle, kalkyle_sum: x.kalkyle_sum };
+      const felt = Object.fromEntries(ANBUD_FELT.map(k => [k, x[k]]));
       if (x.id) return ut(await sb.from('anbud').update(felt).eq('id', x.id).select().single());
       return ut(await sb.from('anbud').insert(felt).select().single());
     },
-    async settFrist(id, frist) { ut(await sb.from('anbud').update({ frist }).eq('id', id)); },
+    async oppdaterFrister(id, felt) { ut(await sb.from('anbud').update(felt).eq('id', id)); },
     async settStatus(id, status, ekstra = {}) { ut(await sb.from('anbud').update({ status, ...ekstra }).eq('id', id)); },
     async slettAnbud(id) { ut(await sb.from('anbud').delete().eq('id', id)); },
     async lagInvitasjon(anbudId, navn, epost) { return ut(await sb.rpc('lag_invitasjon', { p_anbud: anbudId, p_leverandor: navn, p_epost: epost || null })); },
@@ -391,38 +447,59 @@ function demoApi() {
       { id: 'c1', fag: 'Riving/sanering', beskrivelse: 'Fjerning av sotskadet gips', mengde: '22', enhet: 'm²' },
       { id: 'c2', fag: 'Maler', beskrivelse: 'Sotvask og isolerende maling tak', mengde: '31', enhet: 'm²' } ] }];
 
-  const A = { id: 'demo-a', skadenr: 'SB-2026-04417', adresse: 'Lindeveien 14, 0681 Oslo', skadetype: 'Vannskade',
-    beskrivelse: 'Lekkasje fra sluk på bad i 2. etasje. Fukt i bjelkelag og himling i kjeller.', frist: dager(-20), status: 'tildelt',
+  const takst = { takst_navn: 'Kari Haugen', takst_firma: 'Haugen Takst AS', takst_epost: 'kari@haugentakst.no', takst_tlf: '922 33 444' };
+  const A = { id: 'demo-a', skadenr: 'SB-2026-04417', adresse: 'Lindeveien 14, 0681 Oslo', skadetype: 'Vannskade', ...takst,
+    tittel: 'Tilbakeføring av bad og himling i kjeller etter vannskade',
+    beskrivelse: 'Lekkasje fra sluk på bad i 2. etasje. Fukt i bjelkelag og himling i kjeller.\nBadet rives til bærende konstruksjon og bygges opp igjen med ny membran og fliser.\nHimling i kjeller skiftes og males.',
+    saerlige_forhold: 'Uttørking av bjelkelag er bestilt separat og skal være ferdig før oppstart.', befaring: dager(-30), oppmote: '', frist_sporsmal: dagFra(dager(-25)),
+    frist: dager(-20), vedstaelse: dagFra(dager(40)), onsket_ferdig: 'Innen 6 uker etter oppstart', tildelingsregel: STD_TILDELING, status: 'tildelt',
     bygg: byggA, kalkyle: kalkA, kalkyle_sum: kalkSum(byggA, kalkA), opprettet: dager(-34), utsendt: dager(-33) };
-  const B = { id: 'demo-b', skadenr: 'SB-2026-05102', adresse: 'Furubakken 3, 1352 Kolsås', skadetype: 'Stormskade',
-    beskrivelse: 'Vindskade på kledning mot sørvest. Takrenne og vindskie på garasje revet løs.', frist: dager(3), status: 'utsendt',
+  const B = { id: 'demo-b', skadenr: 'SB-2026-05102', adresse: 'Furubakken 3, 1352 Kolsås', skadetype: 'Stormskade', ...takst,
+    tittel: 'Utskifting av kledning og takrenne etter stormskade',
+    beskrivelse: 'Vindskade på kledning mot sørvest. Takrenne og vindskie på garasje revet løs.\nKledning skiftes på hele sørvestveggen og males to strøk.\nNy vindskie og takrenne på garasjen.',
+    saerlige_forhold: 'Huseier har hund. Gi beskjed dagen før dere kommer.', befaring: dager(-2), oppmote: 'Ved garasjen', frist_sporsmal: dagFra(dager(1)),
+    frist: dager(3), vedstaelse: dagFra(dager(63)), onsket_ferdig: 'Før vinteren', tildelingsregel: STD_TILDELING, status: 'utsendt',
     bygg: byggB, kalkyle: kalkB, kalkyle_sum: kalkSum(byggB, kalkB), opprettet: dager(-5), utsendt: dager(-4) };
-  const C = { id: 'demo-c', skadenr: 'SB-2026-05230', adresse: 'Tordenskiolds gate 8, 0160 Oslo', skadetype: 'Brannskade',
-    beskrivelse: 'Kjøkkenbrann, sot i stue og gang.', frist: dager(10), status: 'utkast',
+  const C = { id: 'demo-c', skadenr: 'SB-2026-05230', adresse: 'Tordenskiolds gate 8, 0160 Oslo', skadetype: 'Brannskade', ...takst,
+    tittel: 'Sotvask og maling etter kjøkkenbrann', beskrivelse: 'Kjøkkenbrann, sot i stue og gang.', saerlige_forhold: '', befaring: '', oppmote: '', frist_sporsmal: '',
+    frist: dager(10), vedstaelse: dagFra(dager(70)), onsket_ferdig: '', tildelingsregel: STD_TILDELING, status: 'utkast',
     bygg: byggC, kalkyle: { c1: 480 }, kalkyle_sum: null, opprettet: dager(-1) };
   db.anbud.push(A, B, C);
 
   const inv = (anbud, navn, epost, kode, aapnet) => { const i = { id: nyId('i'), anbud_id: anbud.id, leverandor: navn, epost, kode: ren(kode), kode_slutt: ren(kode).slice(-4), sist_aapnet: aapnet, opprettet: anbud.utsendt }; db.inv.push(i); return i; };
-  const tilbud = (i, firma, orgnr, kontakt, priser, forbehold, levert) => { const a = db.anbud.find(x => x.id === i.anbud_id);
-    db.tilbud.push({ invitasjon_id: i.id, anbud_id: a.id, firmanavn: firma, orgnr, kontakt, telefon: '', epost: i.epost, priser, forbehold, sum_eks_mva: sumAnbud(a.bygg, priser).sum, levert, antall_innsendinger: 1 }); };
+  const tilbud = (i, firma, orgnr, kontakt, priser, forbehold, levert, g) => { const a = db.anbud.find(x => x.id === i.anbud_id);
+    db.tilbud.push({ invitasjon_id: i.id, anbud_id: a.id, firmanavn: firma, orgnr, kontakt, telefon: '', epost: i.epost, priser, forbehold,
+      forbehold_bygg: g.fb || {}, byggetid_uker: g.uker, oppstart: g.start, timepris: g.time, bekreftet: true,
+      sum_eks_mva: sumAnbud(a.bygg, priser).sum, levert, antall_innsendinger: 1 }); };
 
   const ia1 = inv(A, 'Nordvik Bad og Bygg AS', 'tilbud@nordvikbad.no', 'A1B2-C3D4-E5F6-0714', dager(-30));
   const ia2 = inv(A, 'Østkant Rehab AS', 'post@ostkantrehab.no', 'B7C8-D9E0-F1A2-2231', dager(-29));
   const ia3 = inv(A, 'Grorud Våtrom AS', null, 'C4D5-E6F7-A8B9-3348', dager(-28));
-  tilbud(ia1, 'Nordvik Bad og Bygg AS', '923456783', 'Henrik Nordvik', { a1: 7900, a2: 1050, a3: 820, a4: 1590, a5: 13800, a6: 690, a7: 240 }, '', dager(-24));
-  tilbud(ia2, 'Østkant Rehab AS', '934567811', 'Sara Lund', { a1: 5500, a2: 890, a3: 760, a4: 1720, a5: 15900, a6: 760, a7: 195 }, '', dager(-22));
-  tilbud(ia3, 'Grorud Våtrom AS', '945678127', 'Ali Rahimi', { a1: 9000, a2: 1100, a3: 850, a4: 1800, a5: 16500, a6: 800, a7: 260 }, 'Forutsetter at bjelkelag er tørt ved oppstart.', dager(-21));
+  tilbud(ia1, 'Nordvik Bad og Bygg AS', '923456783', 'Henrik Nordvik', { a1: 7900, a2: 1050, a3: 820, a4: 1590, a5: 13800, a6: 690, a7: 240 }, '', dager(-24),
+    { uker: 5, start: dagFra(dager(-12)), time: 720 });
+  tilbud(ia2, 'Østkant Rehab AS', '934567811', 'Sara Lund', { a1: 5500, a2: 890, a3: 760, a4: 1720, a5: 15900, a6: 760, a7: 195 }, '', dager(-22),
+    { uker: 6, start: dagFra(dager(-10)), time: 690 });
+  tilbud(ia3, 'Grorud Våtrom AS', '945678127', 'Ali Rahimi', { a1: 9000, a2: 1100, a3: 850, a4: 1800, a5: 16500, a6: 800, a7: 260 }, '', dager(-21),
+    { uker: 8, start: dagFra(dager(-5)), time: 780, fb: { pa: 'Forutsetter at bjelkelaget er tørt ved oppstart.' } });
   A.tildelt_invitasjon = ia2.id;
 
   const ib1 = inv(B, 'Bærum Fasade AS', 'post@baerumfasade.no', 'D1E2-F3A4-B5C6-4402', dager(-3));
   const ib2 = inv(B, 'Kolsås Snekker AS', 'firmapost@kolsas-snekker.no', 'E7F8-A9B0-C1D2-5519', dager(-2));
   inv(B, 'Asker Tre og Tak AS', null, 'F3A4-B5C6-D7E8-6627', null);
-  tilbud(ib1, 'Bærum Fasade AS', '923456783', 'Mona Strand', { b1: 14500, b2: 1180, b3: 320, b4: 650 }, '', dager(-1));
-  tilbud(ib2, 'Kolsås Snekker AS', '987654325', 'Per Kolstad', { b1: 9800, b2: 1240, b3: 360, b4: 720 }, 'Maling utføres når det er over 8 °C.', dager(-1));
+  tilbud(ib1, 'Bærum Fasade AS', '923456783', 'Mona Strand', { b1: 14500, b2: 1180, b3: 320, b4: 650 }, '', dager(-1),
+    { uker: 3, start: dagFra(dager(14)), time: 750 });
+  tilbud(ib2, 'Kolsås Snekker AS', '987654325', 'Per Kolstad', { b1: 9800, b2: 1240, b3: 360, b4: 720 }, 'Prisene forutsetter fri adkomst med lift.', dager(-1),
+    { uker: 4, start: dagFra(dager(7)), time: 695, fb: { pc: 'Maling utføres når det er over 8 °C. Ellers neste vår.' } });
 
   const sjekkStatus = (a, status, ekstra) => {
     if (['tildelt', 'avlyst'].includes(a.status)) throw new Error('Saken er avsluttet og kan ikke åpnes igjen.');
-    if (status === 'utsendt') { if (a.kalkyle_sum == null || !a.bygg.length) throw new Error('Legg inn poster og kalkyle før du sender ut.'); a.utsendt = new Date().toISOString(); }
+    if (status === 'utsendt') {
+      if (a.kalkyle_sum == null || !a.bygg.length) throw new Error('Legg inn poster og kalkyle før du sender ut.');
+      if (!trim(a.tittel) || !trim(a.beskrivelse) || !trim(a.takst_navn) || !trim(a.takst_epost) || !a.vedstaelse)
+        throw new Error('Fyll inn hva som skal anskaffes, arbeidsomfang, takstmann, e-post og vedståelsesfrist før du sender ut.');
+      if (new Date(a.frist) <= new Date()) throw new Error('Tilbudsfristen må være frem i tid.');
+      a.utsendt = new Date().toISOString();
+    }
     if (status === 'tildelt') {
       if (a.status !== 'utsendt') throw new Error('Bare utsendte anbud kan tildeles.');
       const t = db.tilbud.filter(x => x.anbud_id === a.id); const v = t.find(x => x.invitasjon_id === ekstra.tildelt_invitasjon);
@@ -430,6 +507,12 @@ function demoApi() {
       if (v.sum_eks_mva > Math.min(...t.map(x => x.sum_eks_mva)) && !trim(ekstra.tildelt_begrunnelse)) throw new Error('Du valgte ikke laveste tilbud. Skriv en begrunnelse.');
     }
   };
+
+  const sjekkDatoer = a => {
+    if (a.vedstaelse && a.vedstaelse < dagFra(a.frist)) throw new Error('Vedståelsesfristen kan ikke være før tilbudsfristen.');
+    if (a.frist_sporsmal && a.frist_sporsmal > dagFra(a.frist)) throw new Error('Frist for spørsmål må være før tilbudsfristen.');
+  };
+  const forLeverandor = a => { const { kalkyle, kalkyle_sum, tildelt_invitasjon, tildelt_begrunnelse, ...rest } = a; return rest; };
 
   return {
     demo: true,
@@ -440,10 +523,13 @@ function demoApi() {
     async listAnbud() { await vent(); return kopi(db.anbud.map(a => ({ ...a, antallInv: db.inv.filter(i => i.anbud_id === a.id).length, antallTilbud: db.tilbud.filter(t => t.anbud_id === a.id).length }))).sort((a, b) => b.opprettet.localeCompare(a.opprettet)); },
     async hentAnbud(id) { await vent(); const a = db.anbud.find(x => x.id === id); if (!a) throw new Error('Fant ikke anbudet.');
       return kopi({ anbud: a, invitasjoner: db.inv.filter(i => i.anbud_id === id).map(({ kode, ...r }) => r), tilbud: db.tilbud.filter(t => t.anbud_id === id) }); },
-    async lagreAnbud(x) { await vent();
-      if (x.id) { const a = db.anbud.find(y => y.id === x.id); if (a.status !== 'utkast') throw new Error('Poster og kalkyle er låst etter at anbudet er sendt ut.'); Object.assign(a, kopi(x)); return kopi(a); }
-      const a = { ...kopi(x), id: nyId('a'), status: 'utkast', opprettet: new Date().toISOString() }; db.anbud.push(a); return kopi(a); },
-    async settFrist(id, frist) { db.anbud.find(x => x.id === id).frist = frist; },
+    async lagreAnbud(x) { await vent(); sjekkDatoer(x);
+      const felt = Object.fromEntries(ANBUD_FELT.map(k => [k, kopi(x[k] ?? null)]));
+      if (x.id) { const a = db.anbud.find(y => y.id === x.id); if (a.status !== 'utkast') throw new Error('Poster og kalkyle er låst etter at anbudet er sendt ut.'); Object.assign(a, felt); return kopi(a); }
+      const a = { ...felt, id: nyId('a'), status: 'utkast', opprettet: new Date().toISOString() }; db.anbud.push(a); return kopi(a); },
+    async oppdaterFrister(id, felt) { await vent(); const a = db.anbud.find(x => x.id === id);
+      if (Object.keys(felt).some(k => !ENDRES_ETTER_UTSENDING.includes(k))) throw new Error('Beskrivelse og vilkår er låst etter at anbudet er sendt ut.');
+      sjekkDatoer({ ...a, ...felt }); Object.assign(a, felt); },
     async settStatus(id, status, ekstra = {}) { await vent(); const a = db.anbud.find(x => x.id === id); sjekkStatus(a, status, ekstra); Object.assign(a, { status, ...ekstra }); },
     async slettAnbud(id) { db.anbud = db.anbud.filter(x => x.id !== id); },
     async lagInvitasjon(anbudId, navn, epost) { await vent(); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
@@ -462,16 +548,24 @@ function demoApi() {
       if (a.status === 'avlyst') return { ok: false, feil: 'Anbudet er avlyst.' };
       i.sist_aapnet = new Date().toISOString(); const t = db.tilbud.find(x => x.invitasjon_id === i.id);
       return kopi({ ok: true, leverandor: i.leverandor, aapen: a.status === 'utsendt' && new Date(a.frist) > new Date(),
-        anbud: { skadenr: a.skadenr, adresse: a.adresse, skadetype: a.skadetype, beskrivelse: a.beskrivelse, frist: a.frist, bygg: a.bygg }, tilbud: t || null }); },
+        anbud: forLeverandor(a), tilbud: t || null }); },
     async levSend(kode, t) { await vent(); const i = finn(kode); if (!i) return { ok: false, feil: 'Koden er ikke gyldig.' };
       const a = db.anbud.find(x => x.id === i.anbud_id);
       if (a.status !== 'utsendt' || new Date(a.frist) <= new Date()) return { ok: false, feil: 'Fristen har gått ut. Tilbudet ble ikke sendt.' };
       if (!trim(t.firmanavn) || !trim(t.kontakt)) return { ok: false, feil: 'Fyll inn firmanavn og kontaktperson.' };
       const org = String(t.orgnr || '').replace(/\s/g, ''); if (!orgnrGyldig(org)) return { ok: false, feil: 'Organisasjonsnummeret er ikke gyldig.' };
+      const ukerTall = parseNum(t.byggetid_uker), time = parseNum(t.timepris);
+      if (!(ukerTall > 0 && ukerTall <= 520)) return { ok: false, feil: 'Oppgi byggetid i uker.' };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(t.oppstart || '') || isNaN(new Date(t.oppstart))) return { ok: false, feil: 'Oppgi når dere kan starte.' };
+      if (!(isNum(time) && time >= 0)) return { ok: false, feil: 'Oppgi timepris for tilleggsarbeid.' };
+      if (t.bekreftet !== true) return { ok: false, feil: 'Bekreft at tilbudet følger kravene i anbudet.' };
+      const fb = {}; a.bygg.forEach(b => { const v = trim(t.forbehold_bygg?.[b.id]); if (v) fb[b.id] = v; });
       const priser = {}; a.bygg.forEach(b => b.poster.forEach(p => { const v = parseNum(t.priser?.[p.id]); if (isNum(v) && v >= 0) priser[p.id] = v; }));
       const r = sumAnbud(a.bygg, priser); if (r.mangler) return { ok: false, feil: r.mangler + ' post(er) mangler pris.' };
       const levert = new Date().toISOString(); const gammel = db.tilbud.find(x => x.invitasjon_id === i.id);
-      const ny = { invitasjon_id: i.id, anbud_id: a.id, firmanavn: trim(t.firmanavn), orgnr: org, kontakt: trim(t.kontakt), telefon: trim(t.telefon), epost: trim(t.epost), priser, forbehold: t.forbehold || '', sum_eks_mva: r.sum, levert, antall_innsendinger: (gammel?.antall_innsendinger || 0) + 1 };
+      const ny = { invitasjon_id: i.id, anbud_id: a.id, firmanavn: trim(t.firmanavn), orgnr: org, kontakt: trim(t.kontakt), telefon: trim(t.telefon), epost: trim(t.epost), priser, forbehold: trim(t.forbehold),
+        forbehold_bygg: fb, byggetid_uker: ukerTall, oppstart: t.oppstart, timepris: time, bekreftet: true,
+        sum_eks_mva: r.sum, levert, antall_innsendinger: (gammel?.antall_innsendinger || 0) + 1 };
       db.tilbud = db.tilbud.filter(x => x.invitasjon_id !== i.id); db.tilbud.push(ny);
       return { ok: true, sum_eks_mva: r.sum, levert, kvittering: (i.id + levert).split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7).toString(16).toUpperCase().padStart(8, '0').slice(0, 8) }; }
   };
@@ -595,33 +689,69 @@ function vRediger() {
   return `<button class="link back" data-act="liste">← Alle anbud</button>
     <div class="row between"><h1>${u.id ? 'Rediger utkast' : 'Nytt anbud'}</h1><span class="chip utkast">utkast</span></div>
     ${feilBoks()}
-    <section class="panel"><h2>Saken</h2>
-      <div class="grid2">
-        <label class="f">Skadenummer<input data-f="skadenr" value="${esc(u.skadenr)}" placeholder="SB-2026-00000"></label>
+    ${steg(1, 'Saken', '', `<div class="grid2">
+        ${fld('skadenr', 'Skadenummer', { ph: 'SB-2026-00000' })}
         <label class="f">Skadetype<select data-f="skadetype">${SKADETYPER.map(s => `<option ${s === u.skadetype ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
-        <label class="f">Adresse<input data-f="adresse" value="${esc(u.adresse)}" placeholder="Gate 1, 0000 Sted"></label>
-        <label class="f">Frist for tilbud<input data-f="frist" type="datetime-local" value="${esc(tilLokal(u.frist))}"></label>
-      </div>
-      <label class="f">Beskrivelse til leverandørene<textarea data-f="beskrivelse" placeholder="Hva har skjedd, og hva skal utbedres">${esc(u.beskrivelse)}</textarea>
-        <span class="hint">Ikke skriv kundens navn eller telefon. Leverandøren får kontaktinfo når oppdraget er tildelt.</span></label>
-    </section>
-    <section class="panel"><div class="row between"><h2>Poster</h2><span class="small muted">Kalkylen din vises aldri for leverandørene.</span></div>
+        ${fld('adresse', 'Skadeadresse', { ph: 'Gate 1, 0000 Sted' })}
+        ${fld('tittel', 'Hva skal anskaffes', { ph: 'F.eks. Tilbakeføring av bad etter vannskade', full: true })}
+      </div>`)}
+    ${steg(2, 'Takstmann og kontakt', 'Leverandørene sender spørsmål hit.', `<div class="grid2">
+        ${fld('takst_navn', 'Takstmann', { ph: 'Fullt navn' })}
+        ${fld('takst_firma', 'Takstfirma', { ph: 'Firmanavn', opt: true })}
+        ${fld('takst_epost', 'E-post for spørsmål', { ph: 'navn@firma.no', type: 'email' })}
+        ${fld('takst_tlf', 'Telefon', { ph: '000 00 000', type: 'tel', opt: true })}
+      </div>`)}
+    ${steg(3, 'Befaring og frister', '', `<div class="grid2">
+        ${fld('befaring', 'Befaring', { type: 'datetime-local', opt: true })}
+        ${fld('oppmote', 'Oppmøtested', { ph: 'Standard: skadeadressen', opt: true })}
+        ${fld('frist_sporsmal', 'Frist for spørsmål', { type: 'date', opt: true })}
+        ${fld('frist', 'Tilbudsfrist', { type: 'datetime-local' })}
+        ${fld('vedstaelse', 'Vedståelsesfrist', { type: 'date', help: 'Hvor lenge leverandøren må stå ved prisen.' })}
+        ${fld('onsket_ferdig', 'Ønsket ferdigstillelse', { ph: 'F.eks. innen 8 uker', opt: true })}
+      </div>`)}
+    ${steg(4, 'Beskrivelse av arbeidet', 'Skriv det leverandøren trenger for å gi riktig pris.', `
+      ${fld('beskrivelse', 'Arbeidsomfang', { area: 6, ph: 'Hva har skjedd, og hva skal gjøres', help: 'Ikke skriv kundens navn eller telefon. Leverandøren får kontaktinfo når oppdraget er tildelt.' })}
+      ${fld('saerlige_forhold', 'Særlige forhold', { area: 2, opt: true, ph: 'F.eks. sanering er tildelt annen leverandør og utføres før riving.' })}
+      <div class="krav"><strong>Faste krav som alltid gjelder</strong><ul>${FASTE_KRAV.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>`)}
+    ${steg(5, 'Bygninger og poster', 'Legg inn hvert bygg med poster og mengder. Leverandøren fyller bare inn pris per enhet. Kalkylen din vises aldri for leverandørene.', `
       ${bygg}
       <div class="row between"><button data-act="nyttBygg">+ Bygg</button>
-        <div class="small">Kalkyle eks. mva: <strong class="num" id="kalk-sum">${kr(ks.sum)}</strong> <span id="kalk-mangler" class="muted">${ks.mangler ? `(${ks.mangler} post uten kalkyle)` : ''}</span></div></div>
-    </section>
-    ${S.bekreft === 'send' ? `<div class="confirm"><strong>Sende ut anbudet?</strong><p>Postene og kalkylen låses. Etterpå kan du bare endre fristen og invitere leverandører.</p>
+        <div class="small">Kalkyle eks. mva: <strong class="num" id="kalk-sum">${kr(ks.sum)}</strong> <span id="kalk-mangler" class="muted">${ks.mangler ? `(${ks.mangler} post uten kalkyle)` : ''}</span></div></div>`)}
+    ${steg(6, 'Tildeling', 'Slik velges leverandør. Leverandørene ser denne teksten.', fld('tildelingsregel', 'Tildelingsregel', { area: 3 }))}
+    ${S.bekreft === 'send' ? `<div class="confirm"><strong>Sende ut anbudet?</strong><p>Beskrivelsen, vilkårene, postene og kalkylen låses. Etterpå kan du bare endre frister og befaring, og invitere leverandører.</p>
         <div class="row"><button class="pri" data-act="sendUt">Ja, send ut</button><button data-act="avbryt">Avbryt</button></div></div>`
       : S.bekreft === 'slett' ? `<div class="confirm"><strong>Slette utkastet?</strong><div class="row"><button class="danger" data-act="slettAnbud">Ja, slett</button><button data-act="avbryt">Avbryt</button></div></div>`
       : `<div class="row"><button class="pri" data-act="lagre">Lagre utkast</button><button data-act="spørSend">Lagre og send ut</button>
         ${u.id ? '<button class="ghost danger" data-act="spørSlett">Slett utkast</button>' : ''}</div>`}`;
 }
+// Ett nummerert steg i skjemaet
+const steg = (n, tittel, sub, innhold) => `<section class="panel"><div class="steg-h"><span class="step">Steg ${n}</span><h2>${tittel}</h2>${sub ? `<p class="sub">${sub}</p>` : ''}</div>${innhold}</section>`;
+// Ett felt i utkastet. o: { type, ph, help, opt, full, area (antall linjer) }
+function fld(k, label, o = {}) {
+  const u = S.utkast, v = u[k] ?? '';
+  const verdi = o.type === 'datetime-local' ? (v ? tilLokal(v) : '') : v;
+  const lbl = `<span>${label}${o.opt ? ' <em>(valgfritt)</em>' : ''}</span>`;
+  const felt = o.area ? `<textarea data-f="${k}" rows="${o.area}" placeholder="${esc(o.ph || '')}">${esc(verdi)}</textarea>`
+    : `<input data-f="${k}" type="${o.type || 'text'}" value="${esc(verdi)}" placeholder="${esc(o.ph || '')}">`;
+  return `<label class="f${o.full || o.area ? ' full' : ''}">${lbl}${felt}${o.help ? `<span class="hint">${esc(o.help)}</span>` : ''}</label>`;
+}
 function sjekkUtkast(u, forUtsending) {
   const f = [];
   if (!trim(u.skadenr)) f.push('Skriv inn skadenummer.');
-  if (!trim(u.adresse)) f.push('Skriv inn adresse.');
-  if (!u.frist || isNaN(new Date(u.frist))) f.push('Velg en frist.');
-  else if (forUtsending && new Date(u.frist) <= new Date()) f.push('Fristen må være frem i tid.');
+  if (!trim(u.adresse)) f.push('Skriv inn skadeadresse.');
+  if (!u.frist || isNaN(new Date(u.frist))) f.push('Velg tilbudsfrist.');
+  else if (forUtsending && new Date(u.frist) <= new Date()) f.push('Tilbudsfristen må være frem i tid.');
+  if (forUtsending) {
+    if (!trim(u.tittel)) f.push('Skriv hva som skal anskaffes (steg 1).');
+    if (!trim(u.takst_navn)) f.push('Skriv inn takstmann (steg 2).');
+    if (!epostOk(u.takst_epost)) f.push('Skriv inn en gyldig e-post for spørsmål (steg 2).');
+    if (!u.vedstaelse) f.push('Velg vedståelsesfrist (steg 3).');
+    if (!trim(u.beskrivelse)) f.push('Beskriv arbeidsomfanget (steg 4).');
+    if (!trim(u.tildelingsregel)) f.push('Skriv tildelingsregel (steg 6).');
+  }
+  if (u.frist && u.vedstaelse && u.vedstaelse < dagFra(u.frist)) f.push('Vedståelsesfristen kan ikke være før tilbudsfristen.');
+  if (u.frist && u.frist_sporsmal && u.frist_sporsmal > dagFra(u.frist)) f.push('Frist for spørsmål må være før tilbudsfristen.');
+  if (u.frist && u.befaring && new Date(u.befaring) >= new Date(u.frist)) f.push('Befaringen må være før tilbudsfristen.');
   u.bygg.forEach((b, bi) => { if (!trim(b.navn)) f.push(`Bygg ${bi + 1} mangler navn.`);
     b.poster.forEach((p, pi) => { if (!trim(p.beskrivelse)) f.push(`Post ${postNr(bi, pi)} mangler beskrivelse.`);
       if (!(parseNum(p.mengde) > 0)) f.push(`Post ${postNr(bi, pi)} mangler mengde.`);
@@ -631,9 +761,35 @@ function sjekkUtkast(u, forUtsending) {
 function utkastForLagring(u) {
   const kalkyle = {}; u.bygg.forEach(b => b.poster.forEach(p => { const v = parseNum(u.kalkyle[p.id]); if (isNum(v)) kalkyle[p.id] = v; }));
   const ks = sumAnbud(u.bygg, kalkyle);
-  return { ...u, skadenr: trim(u.skadenr), adresse: trim(u.adresse), beskrivelse: trim(u.beskrivelse), frist: new Date(u.frist).toISOString(),
+  const tekst = ['skadenr', 'adresse', 'tittel', 'beskrivelse', 'saerlige_forhold', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf', 'oppmote', 'onsket_ferdig', 'tildelingsregel'];
+  return { ...u, ...Object.fromEntries(tekst.map(k => [k, trim(u[k])])), frist: new Date(u.frist).toISOString(),
+    befaring: u.befaring ? new Date(u.befaring).toISOString() : null, frist_sporsmal: u.frist_sporsmal || null, vedstaelse: u.vedstaelse || null,
     bygg: u.bygg.map(b => ({ ...b, navn: trim(b.navn), poster: b.poster.map(p => ({ ...p, beskrivelse: trim(p.beskrivelse), mengde: String(p.mengde).trim() })) })),
     kalkyle, kalkyle_sum: ks.mangler ? null : ks.sum };
+}
+
+// Alle forbehold i et tilbud: [[byggnavn eller '', tekst], …]
+const forbeholdListe = (a, t) => [
+  ...a.bygg.filter(b => trim(t.forbehold_bygg?.[b.id])).map(b => [b.navn, t.forbehold_bygg[b.id]]),
+  ...(trim(t.forbehold) ? [['', t.forbehold]] : [])];
+
+/* ---------- anbudet slik leverandøren ser det ---------- */
+function anbudDeler(a) {
+  const fakta = (navn, verdi) => verdi ? `<div class="fakta"><span>${navn}</span><b>${verdi}</b></div>` : '';
+  const kontakt = [esc(a.takst_navn) + (trim(a.takst_firma) ? `, ${esc(a.takst_firma)}` : ''), trim(a.takst_epost) ? `<span class="mono">${esc(a.takst_epost)}</span>` : '', esc(a.takst_tlf)].filter(trim).join('<br>');
+  return {
+    fakta: `<div class="fakta-grid">
+        ${fakta('Skadeadresse', esc(a.adresse))}${fakta('Skadetype', esc(a.skadetype))}
+        ${fakta('Befaring', a.befaring ? dato(a.befaring) + (trim(a.oppmote) ? `<br><span class="muted small">${esc(a.oppmote)}</span>` : '') : '')}
+        ${fakta('Frist for spørsmål', a.frist_sporsmal ? datoDag(a.frist_sporsmal) : '')}
+        ${fakta('Tilbudsfrist', dato(a.frist))}${fakta('Vedståelsesfrist', a.vedstaelse ? datoDag(a.vedstaelse) : '')}
+        ${fakta('Ønsket ferdig', esc(a.onsket_ferdig))}${fakta('Spørsmål til', kontakt)}
+      </div>`,
+    arbeid: `<div class="stack"><h3>Arbeidsomfang</h3><p class="omfang">${esc(a.beskrivelse)}</p></div>
+      ${trim(a.saerlige_forhold) ? `<div class="box warn"><strong>Særlige forhold:</strong> ${esc(a.saerlige_forhold)}</div>` : ''}`,
+    krav: `<div class="stack"><h3>Krav</h3><ul class="krav-liste">${FASTE_KRAV.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>
+      <div class="stack"><h3>Tildeling</h3><p class="omfang">${esc(a.tildelingsregel)}</p></div>`
+  };
 }
 
 /* ---------- anbud (utsendt / avsluttet) ---------- */
@@ -652,10 +808,11 @@ function vAnbud() {
   const kort = sortert.map((x, i) => { const navn = inv.find(v => v.id === x.invitasjon_id)?.leverandor || x.firmanavn;
     return `<label class="offer ${valgt === x.invitasjon_id || (avsluttet && x.invitasjon_id === a.tildelt_invitasjon) ? 'sel' : ''}">
       ${avsluttet ? `<span class="pnr">${i + 1}.</span>` : `<input type="radio" name="valg" data-act="velg" data-id="${x.invitasjon_id}" ${valgt === x.invitasjon_id ? 'checked' : ''}>`}
-      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${trim(x.forbehold) ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''}</span>
+      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${forbeholdListe(a, x).length ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''}</span>
       <span class="s">${kr(x.sum_eks_mva)}<br><span class="small">${pct(avvik(x.sum_eks_mva))}</span></span>
+      <span class="meta gj"><span>Byggetid <b>${uker(tall(x.byggetid_uker))}</b></span><span>Oppstart <b>${datoDag(x.oppstart)}</b></span><span>Timepris <b>${kr(tall(x.timepris))}</b></span></span>
       <span class="meta"><span>Org.nr <span class="mono">${esc(x.orgnr)}</span></span><span>${esc(x.kontakt)}</span><span>Levert ${dato(x.levert)}${x.antall_innsendinger > 1 ? ` (endret ${x.antall_innsendinger - 1} g.)` : ''}</span>${navn !== x.firmanavn ? `<span>Invitert som ${esc(navn)}</span>` : ''}</span>
-      ${trim(x.forbehold) ? `<span class="meta" style="color:var(--warn)">Forbehold: ${esc(x.forbehold)}</span>` : ''}
+      ${forbeholdListe(a, x).map(([hvor, tekst]) => `<span class="meta fb">Forbehold${hvor ? ' – ' + esc(hvor) : ''}: ${esc(tekst)}</span>`).join('')}
     </label>`; }).join('');
 
   const kol = sortert;
@@ -665,6 +822,9 @@ function vAnbud() {
       return `<tr><td class="pnr">${postNr(bi, pi)}</td><td>${esc(p.beskrivelse)} <span class="muted small">· ${esc(p.fag)}</span></td><td class="n">${esc(p.mengde)} ${esc(p.enhet)}</td>
         <td class="n">${kr(parseNum(a.kalkyle?.[p.id]) * m)}</td>${linjer.map(l => `<td class="n ${kol.length > 1 && l === min ? 'lo' : ''}">${kr(l)}</td>`).join('')}</tr>`; }).join('')).join('')}
     <tr class="sum"><td></td><td>Sum eks. mva</td><td></td><td class="n">${kr(a.kalkyle_sum)}</td>${kol.map(x => `<td class="n">${kr(x.sum_eks_mva)}</td>`).join('')}</tr>
+    <tr class="gj"><td></td><td>Byggetid</td><td></td><td></td>${kol.map(x => `<td class="n">${uker(tall(x.byggetid_uker))}</td>`).join('')}</tr>
+    <tr class="gj"><td></td><td>Oppstart</td><td></td><td></td>${kol.map(x => `<td class="n">${datoDag(x.oppstart)}</td>`).join('')}</tr>
+    <tr class="gj"><td></td><td>Timepris tilleggsarbeid</td><td></td><td></td>${kol.map(x => `<td class="n">${kr(tall(x.timepris))}</td>`).join('')}</tr>
     </tbody></table></div>`;
 
   const invRader = inv.map(v => { const lev = t.find(x => x.invitasjon_id === v.id);
@@ -673,7 +833,7 @@ function vAnbud() {
       <td>${!avsluttet && !lev ? `<button class="ghost danger small" data-act="slettInv" data-id="${v.id}">Trekk tilbake</button>` : ''}</td></tr>`; }).join('');
 
   const nk = S.nyKode;
-  const invTekst = nk ? `Hei!\n\nDere er invitert til å gi pris på skadesak ${a.skadenr} (${a.skadetype}, ${a.adresse}).\n\nGå til ${api.demo ? 'https://din-adresse.no' : location.origin} og skriv inn denne koden:\n${nk.kode}\n\nFrist for tilbud: ${dato(a.frist)}.\nKoden er personlig. Ikke del den med andre.` : '';
+  const invTekst = nk ? `Hei!\n\nDere er invitert til å gi pris på: ${a.tittel}\nSkadesak ${a.skadenr} (${a.skadetype}, ${a.adresse}).\n\nGå til ${api.demo ? 'https://din-adresse.no' : location.origin} og skriv inn denne koden:\n${nk.kode}\n\nFrist for tilbud: ${dato(a.frist)}.\nKoden er personlig. Ikke del den med andre.` : '';
 
   return `<button class="link back" data-act="liste">← Alle anbud</button>
     <div class="row between"><div class="stack" style="gap:4px"><h1 class="mono" style="font-family:var(--f-mono);font-size:1.5rem">${esc(a.skadenr)}</h1>
@@ -685,6 +845,8 @@ function vAnbud() {
       <div class="kpi"><span>Laveste tilbud</span><b>${kr(laveste)}</b>${laveste != null ? `<span>${pct(avvik(laveste))} mot kalkyle</span>` : ''}</div>
       <div class="kpi"><span>${a.status === 'utsendt' ? 'Frist' : 'Fristen var'}</span><b style="font-size:1rem">${dato(a.frist)}</b><span>${a.status === 'utsendt' ? igjen(a.frist) : ''}</span></div>
     </section>
+    <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
+      <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
     ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva. Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
     ${!avsluttet ? `<section class="panel"><h2>Inviter leverandør</h2>
@@ -715,9 +877,13 @@ function vAnbud() {
       : '<p class="muted">Ingen tilbud levert ennå.</p>'}
     </section>
 
-    ${!avsluttet ? `<section class="panel"><h2>Frist og avlysning</h2>
-      <form class="row" data-form="frist"><label class="f" style="flex:1 1 220px">Ny frist<input id="nyfrist" type="datetime-local" value="${esc(tilLokal(a.frist))}"></label>
-        <button type="submit" style="align-self:end">Endre frist</button></form>
+    ${!avsluttet ? `<section class="panel"><div class="steg-h"><h2>Frister og befaring</h2><p class="sub">Dette kan endres etter utsending. Gi beskjed til leverandørene når du endrer noe.</p></div>
+      <form class="stack" data-form="frist"><div class="grid2">
+        <label class="f">Tilbudsfrist<input id="nyfrist" type="datetime-local" value="${esc(tilLokal(a.frist))}"></label>
+        <label class="f"><span>Frist for spørsmål <em>(valgfritt)</em></span><input id="nysporsmal" type="date" value="${esc(a.frist_sporsmal || '')}"></label>
+        <label class="f"><span>Befaring <em>(valgfritt)</em></span><input id="nybefaring" type="datetime-local" value="${esc(a.befaring ? tilLokal(a.befaring) : '')}"></label>
+        <label class="f"><span>Oppmøtested <em>(valgfritt)</em></span><input id="nyoppmote" value="${esc(a.oppmote || '')}"></label>
+      </div><button type="submit" class="back">Lagre endringer</button></form>
       ${S.bekreft === 'avlys' ? `<div class="confirm"><strong>Avlyse anbudet?</strong><p>Leverandørene får beskjed om at anbudet er avlyst når de åpner koden.</p><div class="row"><button class="danger" data-act="avlys">Ja, avlys</button><button data-act="avbryt">Avbryt</button></div></div>`
         : `<button class="ghost danger back" data-act="spørAvlys">Avlys anbudet</button>`}
     </section>` : ''}`;
@@ -761,20 +927,25 @@ function vLev() {
   const s = sumAnbud(a.bygg, f.priser);
   const orgOk = !f.orgnr || orgnrGyldig(f.orgnr.replace(/\s/g, ''));
   const laast = !L.data.aapen;
+  const ro = laast ? 'readonly' : '';
   const poster = a.bygg.map((b, bi) => `<div class="bygg"><div class="bygg-h"><span class="pnr">${bi + 1}</span><h3>${esc(b.navn)}</h3></div>
     ${b.poster.map((p, pi) => { const e = parseNum(f.priser[p.id]), m = parseNum(p.mengde);
       return `<div class="lev-post"><div><span class="pnr">${postNr(bi, pi)}</span> ${esc(p.beskrivelse)}<div class="q">${esc(p.fag)} · ${esc(p.mengde)} ${esc(p.enhet)}</div></div>
-        <div class="pin"><input data-lp="${p.id}" value="${esc(f.priser[p.id] ?? '')}" inputmode="decimal" placeholder="0" aria-label="Pris per ${esc(p.enhet)} for post ${postNr(bi, pi)}" ${laast ? 'readonly' : ''}><span class="small muted">kr/${esc(p.enhet)}</span></div>
-        <div class="ls num" id="lls-${p.id}">${isNum(e) && isNum(m) ? kr(e * m) : ''}</div></div>`; }).join('')}</div>`).join('');
+        <div class="pin"><input data-lp="${p.id}" value="${esc(f.priser[p.id] ?? '')}" inputmode="decimal" placeholder="0" aria-label="Pris per ${esc(p.enhet)} for post ${postNr(bi, pi)}" ${ro}><span class="small muted">kr/${esc(p.enhet)}</span></div>
+        <div class="ls num" id="lls-${p.id}">${isNum(e) && isNum(m) ? kr(e * m) : ''}</div></div>`; }).join('')}
+    <label class="f lev-fb"><span>Forbehold for ${esc(b.navn)} <em>(valgfritt)</em></span><textarea data-lfb="${b.id}" rows="2" ${ro} placeholder="Bare forbehold som gjelder dette bygget.">${esc(f.forbehold_bygg[b.id] || '')}</textarea></label>
+    </div>`).join('');
+  const d = anbudDeler(a);
   return `<section class="panel">
       <div class="row between"><span class="small muted">Invitert: ${esc(L.data.leverandor)}</span><span class="chip ${laast ? 'avlyst' : 'utsendt'}">${laast ? 'Stengt' : igjen(a.frist)}</span></div>
-      <h1>Skadesak <span style="font-family:var(--f-mono);font-weight:500">${esc(a.skadenr)}</span></h1>
-      <div class="grid2"><div><div class="small muted">Adresse</div>${esc(a.adresse)}</div><div><div class="small muted">Skadetype</div>${esc(a.skadetype)}</div>
-        <div><div class="small muted">Frist</div>${dato(a.frist)}</div></div>
-      ${trim(a.beskrivelse) ? `<p style="max-width:65ch">${esc(a.beskrivelse)}</p>` : ''}
+      <div class="stack" style="gap:4px"><span class="step">Skadesak <span class="mono">${esc(a.skadenr)}</span></span><h1>${esc(trim(a.tittel) || 'Anbud')}</h1></div>
+      ${d.fakta}
     </section>
+    <section class="panel">${d.arbeid}</section>
+    <section class="panel">${d.krav}</section>
     ${laast ? `<div class="box warn">Fristen har gått ut. ${L.data.tilbud ? 'Her er tilbudet dere leverte.' : 'Dere leverte ikke tilbud på dette anbudet.'}</div>`
       : L.data.tilbud ? `<div class="box info">Dere leverte ${dato(L.data.tilbud.levert)}. Dere kan endre og sende på nytt frem til fristen. Det siste tilbudet gjelder.</div>` : ''}
+    <h2 class="del-h">Tilbudet deres</h2>
     <section class="panel"><h2>Firma</h2>
       <div class="grid2">
         <label class="f">Firmanavn<input data-lf="firmanavn" value="${esc(f.firmanavn)}" ${laast ? 'readonly' : ''} autocomplete="organization"></label>
@@ -784,12 +955,20 @@ function vLev() {
         <label class="f">Telefon<input data-lf="telefon" value="${esc(f.telefon)}" type="tel" ${laast ? 'readonly' : ''} autocomplete="tel"></label>
         <label class="f">E-post<input data-lf="epost" value="${esc(f.epost)}" type="email" ${laast ? 'readonly' : ''} autocomplete="email"></label>
       </div></section>
-    <section class="panel"><div class="stack" style="gap:4px"><h2>Priser</h2><p class="small muted">Oppgi pris per enhet eks. mva. Summen regnes ut automatisk.</p></div>
+    <section class="panel"><div class="steg-h"><h2>Gjennomføring</h2><p class="sub">Brukes når vi sammenligner tilbudene, sammen med prisen.</p></div>
+      <div class="grid2">
+        <label class="f">Byggetid<span class="med-enhet"><input data-lf="byggetid_uker" value="${esc(f.byggetid_uker)}" inputmode="decimal" placeholder="0" ${ro}><span>uker</span></span></label>
+        <label class="f">Tidligste oppstart<input data-lf="oppstart" type="date" value="${esc(f.oppstart)}" ${ro}></label>
+        <label class="f">Timepris for tilleggsarbeid<span class="med-enhet"><input data-lf="timepris" value="${esc(f.timepris)}" inputmode="decimal" placeholder="0" ${ro}><span>kr/time eks. mva</span></span></label>
+      </div></section>
+    <section class="panel"><div class="steg-h"><h2>Priser</h2><p class="sub">Oppgi pris per enhet eks. mva. Summen regnes ut automatisk.</p></div>
       ${poster}
       <div class="totals"><span class="small muted">Sum eks. mva</span><span class="big" id="lsum">${kr(s.sum)}</span>
         <span class="small muted" id="lmva">Inkl. mva: ${kr(s.sum * (1 + MVA))}</span><span class="small" id="lmangler" style="color:var(--warn)">${s.mangler && !laast ? `${s.mangler} post(er) mangler pris` : ''}</span></div>
-      <label class="f">Forbehold (valgfritt)<textarea data-lf="forbehold" ${laast ? 'readonly' : ''} placeholder="Skriv bare reelle forbehold. Tilbud med forbehold kan bli vurdert lavere.">${esc(f.forbehold)}</textarea></label>
+      <label class="f"><span>Generelle forbehold <em>(valgfritt)</em></span><textarea data-lf="forbehold" ${ro} placeholder="Skriv bare reelle forbehold. Tilbud med forbehold kan bli vurdert lavere.">${esc(f.forbehold)}</textarea></label>
     </section>
+    ${laast ? '' : `<label class="bekreft"><input type="checkbox" data-lf="bekreftet" ${f.bekreftet ? 'checked' : ''}>
+      <span>Vi bekrefter at tilbudet følger kravene i anbudet, og at vi står ved prisen til og med ${datoDag(a.vedstaelse)}.</span></label>`}
     ${feilBoks()}
     ${laast ? '' : `<div class="row"><button class="pri" data-act="levSend">${L.data.tilbud ? 'Send endret tilbud' : 'Send tilbud'}</button><span class="small muted">Sum: <span class="num" id="lsum2">${kr(s.sum)}</span> eks. mva</span></div>`}`;
 }
@@ -808,7 +987,13 @@ function vKvittering() {
         return `<tr><td class="pnr">${postNr(bi, pi)}</td><td>${esc(p.beskrivelse)}</td><td class="n">${esc(p.mengde)} ${esc(p.enhet)}</td><td class="n">${kr2(e)}</td><td class="n">${kr(e * m)}</td></tr>`; }).join('')).join('')}
       <tr class="sum"><td></td><td>Sum eks. mva</td><td></td><td></td><td class="n">${kr(Number(k.sum_eks_mva))}</td></tr>
       <tr><td></td><td>Inkl. mva</td><td></td><td></td><td class="n">${kr(Number(k.sum_eks_mva) * (1 + MVA))}</td></tr></tbody></table></div>
-      ${trim(L.form.forbehold) ? `<div><div class="small muted">Forbehold</div>${esc(L.form.forbehold)}</div>` : ''}
+      <div class="grid2">
+        <div><div class="small muted">Byggetid</div>${uker(parseNum(L.form.byggetid_uker))}</div>
+        <div><div class="small muted">Tidligste oppstart</div>${datoDag(L.form.oppstart)}</div>
+        <div><div class="small muted">Timepris tilleggsarbeid</div>${kr(parseNum(L.form.timepris))} eks. mva</div>
+        <div><div class="small muted">Står ved prisen til og med</div>${datoDag(a.vedstaelse)}</div>
+      </div>
+      ${forbeholdListe(a, L.form).map(([hvor, tekst]) => `<div><div class="small muted">Forbehold${hvor ? ' – ' + esc(hvor) : ''}</div>${esc(tekst)}</div>`).join('')}
       <p class="small muted">Summen over er regnet ut av oss ut fra mengdene i anbudet. Dere kan endre tilbudet frem til ${dato(a.frist)}.</p>
     </section>
     <div class="row noprint">${api.demo ? '' : '<button class="pri" data-act="skrivUt">Lagre som PDF</button>'}<button data-act="levEndre">Endre tilbudet</button><button class="ghost" data-act="levut">Ferdig</button></div>`;
@@ -840,8 +1025,11 @@ async function levAapne(kode) {
   const r = await api.levHent(kode);
   if (!r.ok) { S.feil = [r.feil]; S._kodeFyll = kode; S.view = 'start'; return render(); }
   const t = r.tilbud;
+  const komma = v => v == null || v === '' ? '' : String(v).replace('.', ',');
   S.lev = { kode, data: r, form: { firmanavn: t?.firmanavn || '', orgnr: t?.orgnr || '', kontakt: t?.kontakt || '', telefon: t?.telefon || '', epost: t?.epost || '', forbehold: t?.forbehold || '',
-    priser: Object.fromEntries(Object.entries(t?.priser || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) } };
+    byggetid_uker: komma(t?.byggetid_uker), oppstart: t?.oppstart ? String(t.oppstart).slice(0, 10) : '', timepris: komma(t?.timepris),
+    forbehold_bygg: { ...(t?.forbehold_bygg || {}) }, bekreftet: false,
+    priser: Object.fromEntries(Object.entries(t?.priser || {}).map(([k, v]) => [k, komma(v)])) } };
   S.view = 'lev'; S.feil = []; render();
 }
 
@@ -901,11 +1089,16 @@ async function levSend() {
   if (!trim(f.firmanavn)) feil.push('Skriv inn firmanavn.');
   if (!orgnrGyldig(f.orgnr.replace(/\s/g, ''))) feil.push('Skriv inn et gyldig organisasjonsnummer (9 siffer).');
   if (!trim(f.kontakt)) feil.push('Skriv inn kontaktperson.');
+  if (!(parseNum(f.byggetid_uker) > 0)) feil.push('Oppgi byggetid i uker.');
+  if (!f.oppstart) feil.push('Oppgi tidligste oppstart.');
+  if (!(parseNum(f.timepris) >= 0)) feil.push('Oppgi timepris for tilleggsarbeid.');
   a.bygg.forEach((b, bi) => b.poster.forEach((p, pi) => { const v = parseNum(f.priser[p.id]); if (!isNum(v) || v < 0) feil.push(`Post ${postNr(bi, pi)} mangler pris.`); }));
+  if (!f.bekreftet) feil.push('Kryss av for at tilbudet følger kravene.');
   if (feil.length) { S.feil = feil; return keep(); }
   await jobb(async () => {
     const priser = Object.fromEntries(Object.entries(f.priser).map(([k, v]) => [k, parseNum(v)]));
-    const r = await api.levSend(S.lev.kode, { ...f, orgnr: f.orgnr.replace(/\s/g, ''), priser });
+    const r = await api.levSend(S.lev.kode, { ...f, orgnr: f.orgnr.replace(/\s/g, ''), priser,
+      byggetid_uker: parseNum(f.byggetid_uker), timepris: parseNum(f.timepris), bekreftet: f.bekreftet === true });
     if (!r.ok) { S.feil = [r.feil]; return keep(); }
     S.lev.kvittering = r; S.lev.form.priser = Object.fromEntries(Object.entries(priser).map(([k, v]) => [k, v]));
     S.view = 'kvittering'; render();
@@ -920,7 +1113,13 @@ document.addEventListener('submit', e => {
   if (f === 'mfa') jobb(async () => { await api.mfaBekreft(S.mfa.faktorId, $('#mfakode').value.trim()); S.mfa = null; await tilAdmin(); });
   if (f === 'inviter') jobb(async () => { const navn = $('#invnavn').value, ep = $('#invepost').value; const r = await api.lagInvitasjon(S.aktiv.anbud.id, navn, ep);
     S.nyKode = { ...r, navn: trim(navn) }; S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); keep(); });
-  if (f === 'frist') jobb(async () => { const v = $('#nyfrist').value; if (!v) return; await api.settFrist(S.aktiv.anbud.id, new Date(v).toISOString()); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Fristen er endret'); keep(); });
+  if (f === 'frist') jobb(async () => {
+    const v = $('#nyfrist').value; if (!v) throw new Error('Velg tilbudsfrist.');
+    const b = $('#nybefaring').value, sp = $('#nysporsmal').value;
+    const felt = { frist: new Date(v).toISOString(), frist_sporsmal: sp || null, befaring: b ? new Date(b).toISOString() : null, oppmote: trim($('#nyoppmote').value) };
+    if (sp && sp > dagFra(felt.frist)) throw new Error('Frist for spørsmål må være før tilbudsfristen.');
+    if (b && new Date(b) >= new Date(felt.frist)) throw new Error('Befaringen må være før tilbudsfristen.');
+    await api.oppdaterFrister(S.aktiv.anbud.id, felt); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Endringene er lagret'); keep(); });
 });
 
 document.addEventListener('input', e => {
@@ -928,7 +1127,10 @@ document.addEventListener('input', e => {
   if (t.id === 'begr') { S.begrunnelse = t.value; return; }
   if (t.id === 'aarvalg') return;
   const u = S.utkast;
-  if (t.dataset.f) { u[t.dataset.f] = t.dataset.f === 'frist' ? (t.value ? new Date(t.value).toISOString() : '') : t.value; return; }
+  if (t.dataset.f) { u[t.dataset.f] = t.type === 'datetime-local' ? (t.value ? new Date(t.value).toISOString() : '') : t.value; return; }
+  if (t.dataset.lfb) { S.lev.form.forbehold_bygg[t.dataset.lfb] = t.value; return; }
+  if (t.dataset.lf === 'bekreftet') { S.lev.form.bekreftet = t.checked;
+    const før = S.feil.length; S.feil = S.feil.filter(x => !x.startsWith('Kryss av')); if (S.feil.length !== før) keep(); return; }
   if (t.dataset.bf) { u.bygg[+t.dataset.b][t.dataset.bf] = t.value; return; }
   if (t.dataset.p || t.dataset.k) {
     if (t.dataset.p) { const [bi, pi] = t.dataset.p.split(',').map(Number); u.bygg[bi].poster[pi][t.dataset.pf] = t.value; }

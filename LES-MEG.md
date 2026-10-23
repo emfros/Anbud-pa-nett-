@@ -69,6 +69,25 @@ Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send m
 
 ---
 
+## Slik fungerer anbudet
+
+**Saksbehandler** fyller ut seks steg:
+
+1. **Saken** – skadenummer, skadetype, adresse og hva som skal anskaffes.
+2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
+3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
+4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med.
+5. **Bygninger og poster** – mengder per post og din kalkyle.
+6. **Tildeling** – hvordan leverandør velges.
+
+**Leverandøren** ser alt dette, og fyller ut firma, byggetid, tidligste oppstart, timepris for tilleggsarbeid, pris per post og forbehold per bygg. Til slutt krysser de av for at tilbudet følger kravene.
+
+Når du sammenligner, ser du byggetid, oppstart, timepris og forbehold ved siden av prisen.
+
+## Har du allerede satt opp databasen?
+
+Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alt som ligger i databasen fra før blir slettet.** Det går fint så lenge du bare har testdata.
+
 ## Hva som beskytter dataene
 
 | Risiko | Hva som stopper det |
@@ -78,20 +97,22 @@ Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send m
 | Leverandør ser andres priser | Leverandører har ingen tilgang til tabellene. De får bare sitt eget anbud og sitt eget tilbud. |
 | Leverandør ser kalkylen din | Kalkylen sendes aldri ut. Testet. |
 | Noen jukser med summen i nettleseren | Summen regnes ut på serveren, ut fra mengdene i anbudet. |
-| Poster endres etter at tilbud er gitt | Poster og kalkyle låses når anbudet sendes ut. |
+| Anbudet endres etter at tilbud er gitt | Beskrivelse, vilkår, poster og kalkyle låses når anbudet sendes ut. Bare frister og befaring kan endres etterpå. |
+| Ufullstendige tilbud | Databasen avviser tilbud uten byggetid, oppstart, timepris og bekreftelse av kravene. |
 | Noen stjeler passordet ditt | Alt krever tofaktor. Uten det ser du ingenting, selv med riktig passord. |
 | Tilbud etter fristen | Databasen avviser det, uansett hva nettsiden sier. |
 | Tildeling uten grunn | Velger du ikke laveste tilbud, må du skrive begrunnelse. Det lagres. |
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 42 tester av tilgangsreglene. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus.
+- **Databasen:** kjørt i ekte Postgres med 63 tester av tilgangsreglene og de nye feltene. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene og sammenligningen.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen
 
 - E-post til leverandørene sendes ikke automatisk. Du kopierer ferdig tekst og sender selv.
 - Ingen vedlegg (tegninger, bilder). Kan legges til med Supabase Storage.
-- Kontraktsvilkår og konkurransegrunnlag fra det gamle skjemaet ditt er ikke med ennå.
+- Konkurransegrunnlaget som eget dokument (PDF) er ikke med ennå. Leverandøren ser innholdet på nettsiden i stedet.
+- Fremdriftsplan kan ikke lastes opp, siden det ikke er vedlegg ennå.
 - Gratisversjonen av Supabase pauser prosjektet etter en uke uten bruk. Du starter det igjen med ett klikk.
