@@ -1,3 +1,14 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
 <title>Storebrand Anbudsportal</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -229,7 +240,8 @@ td.lo { background: var(--ok-50); color: var(--ok); font-weight: 700 }
   main { padding: 0 }
 }
 </style>
-
+</head>
+<body>
 <div class="bar noprint"><div class="bar-in" id="bar"></div></div>
 <main id="app"></main>
 <div id="toast" class="toast" hidden></div>
@@ -957,3 +969,5 @@ async function start() {
 }
 start().catch(e => { document.getElementById('app').innerHTML = `<div class="box err">${esc(e.message)}</div>`; });
 </script>
+</body>
+</html>
