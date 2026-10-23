@@ -84,6 +84,22 @@ Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send m
 
 Når du sammenligner, ser du byggetid, oppstart, timepris og forbehold ved siden av prisen.
 
+## Slik inviterer du leverandører
+
+Portalen sender aldri e-post selv. Du sender fra din egen e-post, i tre steg:
+
+1. **Skriv inn firma og e-post**, og trykk «Se e-posten».
+2. **Se over e-posten.** Du ser hvem den er fra (deg), hvem den går til, emnet og teksten. Du kan endre alt. `[KODE]` byttes ut med leverandørens personlige kode.
+3. **Trykk «Lag kode og åpne e-post».** E-posten åpnes ferdig utfylt i e-postprogrammet ditt, for eksempel Outlook. Du ser over og sender selv. Trykk så «Ja, marker som sendt» i portalen.
+
+Send én e-post per leverandør. Koden er personlig, og leverandørene skal ikke se hvem de konkurrerer med.
+
+E-posten har også en lenke der koden er fylt inn, så leverandøren slipper å skrive den.
+
+Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, åpnet eller levert.
+
+**Hvorfor sender ikke portalen selv?** En e-post med kode fra et ukjent domene som sier at den er fra Storebrand, ser ut som svindel og havner ofte i søppelposten. Skal portalen sende selv, bør det skje fra en Storebrand-adresse, og det krever IT.
+
 ## Spørsmål og svar
 
 - **Leverandøren** stiller spørsmål i portalen, frem til frist for spørsmål (eller tilbudsfristen hvis du ikke har satt en egen frist). Maks 20 spørsmål per leverandør.
@@ -108,6 +124,7 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 | Leverandør ser kalkylen din | Kalkylen sendes aldri ut. Testet. |
 | Noen jukser med summen i nettleseren | Summen regnes ut på serveren, ut fra mengdene i anbudet. |
 | Anbudet endres etter at tilbud er gitt | Beskrivelse, vilkår, poster og kalkyle låses når anbudet sendes ut. Bare frister og befaring kan endres etterpå. |
+| E-post går til feil leverandør | Ingenting sendes automatisk. Du ser hver e-post før den sendes, og sender den selv. |
 | Leverandør får vite hvem som spurte | Leverandørene ser bare den publiserte teksten, aldri hvem som spurte. Du kan skrive om spørsmålet før du publiserer. |
 | Svar endres i ettertid | Publiserte svar og avklaringer kan ikke endres eller slettes, heller ikke av deg. |
 | Leverandør fyller portalen med spørsmål | Maks 20 spørsmål per leverandør, og bare frem til frist for spørsmål. |
@@ -118,13 +135,13 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 90 tester av tilgangsreglene, de nye feltene og spørsmål og svar. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen og spørsmål og svar.
+- **Databasen:** kjørt i ekte Postgres med 92 tester av tilgangsreglene, de nye feltene, spørsmål og svar og utsending. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar og utsendingen av e-post.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen
 
-- E-post til leverandørene sendes ikke automatisk. Du kopierer ferdig tekst og sender selv.
+- E-post sendes fra ditt eget e-postprogram, ikke fra portalen. Det er et bevisst valg (se «Slik inviterer du leverandører»).
 - Ingen vedlegg (tegninger, bilder). Kan legges til med Supabase Storage.
 - Konkurransegrunnlaget som eget dokument (PDF) er ikke med ennå. Leverandøren ser innholdet på nettsiden i stedet.
 - Fremdriftsplan kan ikke lastes opp, siden det ikke er vedlegg ennå.

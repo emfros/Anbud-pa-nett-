@@ -118,6 +118,7 @@ create table public.invitasjon (
   epost       text,
   kode_hash   text not null unique,
   kode_slutt  text not null,           -- siste 4 tegn, så du kjenner igjen koden
+  sendt       timestamptz,             -- når saksbehandler markerte e-posten som sendt (portalen sender aldri selv)
   sist_aapnet timestamptz,
   opprettet   timestamptz not null default now()
 );

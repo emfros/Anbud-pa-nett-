@@ -223,6 +223,14 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
 .qa-ny { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--n200) }
 .badge.ny { background: var(--red-600); color: var(--n0) }
 .qa-varsel { color: var(--warn); font-weight: 600 }
+
+/* e-post-forhåndsvisning */
+.epost { border: 1px solid var(--n300); border-radius: 14px; overflow: hidden; background: var(--n0) }
+.epost-rad { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--n200); font-size: 14px }
+.epost-rad > span { color: var(--n500); font-size: 13px }
+.epost-rad input { height: 38px }
+.epost textarea { border: 0; border-radius: 0; padding: 14px; min-height: 340px; font-size: 14px; line-height: 1.55 }
+.epost textarea:focus { box-shadow: inset 0 0 0 2px rgba(237,48,36,.25) }
 .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ok-50); color: var(--ok); white-space: nowrap }
 .badge.w { background: var(--warn-50); color: var(--warn) }
 
@@ -401,7 +409,7 @@ function supabaseApi(sb) {
     },
     async hentAnbud(id) {
       const anbud = ut(await sb.from('anbud').select('*').eq('id', id).single());
-      const invitasjoner = ut(await sb.from('invitasjon').select('id,leverandor,epost,kode_slutt,sist_aapnet,opprettet').eq('anbud_id', id).order('opprettet'));
+      const invitasjoner = ut(await sb.from('invitasjon').select('id,leverandor,epost,kode_slutt,sendt,sist_aapnet,opprettet').eq('anbud_id', id).order('opprettet'));
       const tilbud = ut(await sb.from('tilbud').select('*').eq('anbud_id', id));
       const sporsmal = ut(await sb.from('sporsmal').select('id,invitasjon_id,sporsmal,publisert_tekst,svar,opprettet,publisert').eq('anbud_id', id).order('opprettet'));
       return { anbud, invitasjoner, tilbud, sporsmal };
@@ -420,6 +428,7 @@ function supabaseApi(sb) {
     async slettAnbud(id) { ut(await sb.from('anbud').delete().eq('id', id)); },
     async lagInvitasjon(anbudId, navn, epost) { return ut(await sb.rpc('lag_invitasjon', { p_anbud: anbudId, p_leverandor: navn, p_epost: epost || null })); },
     async slettInvitasjon(id) { ut(await sb.from('invitasjon').delete().eq('id', id)); },
+    async merkSendt(id) { ut(await sb.from('invitasjon').update({ sendt: new Date().toISOString() }).eq('id', id)); },
     async aarsoversikt() { return ut(await sb.from('aarsoversikt').select('*')); },
     async levHent(kode) { return ut(await sb.rpc('leverandor_hent', { p_kode: kode })); },
     async levSend(kode, t) { return ut(await sb.rpc('leverandor_send', { p_kode: kode, p_tilbud: t })); }
@@ -484,7 +493,7 @@ function demoApi() {
     bygg: byggC, kalkyle: { c1: 480 }, kalkyle_sum: null, opprettet: dager(-1) };
   db.anbud.push(A, B, C);
 
-  const inv = (anbud, navn, epost, kode, aapnet) => { const i = { id: nyId('i'), anbud_id: anbud.id, leverandor: navn, epost, kode: ren(kode), kode_slutt: ren(kode).slice(-4), sist_aapnet: aapnet, opprettet: anbud.utsendt }; db.inv.push(i); return i; };
+  const inv = (anbud, navn, epost, kode, aapnet) => { const i = { id: nyId('i'), anbud_id: anbud.id, leverandor: navn, epost, kode: ren(kode), kode_slutt: ren(kode).slice(-4), sendt: anbud.utsendt, sist_aapnet: aapnet, opprettet: anbud.utsendt }; db.inv.push(i); return i; };
   const tilbud = (i, firma, orgnr, kontakt, priser, forbehold, levert, g) => { const a = db.anbud.find(x => x.id === i.anbud_id);
     db.tilbud.push({ invitasjon_id: i.id, anbud_id: a.id, firmanavn: firma, orgnr, kontakt, telefon: '', epost: i.epost, priser, forbehold,
       forbehold_bygg: g.fb || {}, byggetid_uker: g.uker, oppstart: g.start, timepris: g.time, bekreftet: true,
@@ -579,8 +588,9 @@ function demoApi() {
     async settStatus(id, status, ekstra = {}) { await vent(); const a = db.anbud.find(x => x.id === id); sjekkStatus(a, status, ekstra); Object.assign(a, { status, ...ekstra }); },
     async slettAnbud(id) { db.anbud = db.anbud.filter(x => x.id !== id); },
     async lagInvitasjon(anbudId, navn, epost) { await vent(); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
-      const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sist_aapnet: null, opprettet: new Date().toISOString() };
+      const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sendt: null, sist_aapnet: null, opprettet: new Date().toISOString() };
       db.inv.push(i); return { id: i.id, kode: k }; },
+    async merkSendt(id) { const i = db.inv.find(x => x.id === id); if (i) i.sendt = new Date().toISOString(); },
     async slettInvitasjon(id) { db.inv = db.inv.filter(i => i.id !== id); db.tilbud = db.tilbud.filter(t => t.invitasjon_id !== id);
       db.sporsmal.forEach(s => { if (s.invitasjon_id === id) s.invitasjon_id = null; }); },
     async aarsoversikt() { await vent();
@@ -899,6 +909,58 @@ function vQaLev(L) {
   </section>`;
 }
 
+/* ---------- invitasjon på e-post (sendes fra saksbehandlers eget e-postprogram) ---------- */
+const KODE = '[KODE]';
+const portalAdresse = () => !api.demo && /^https?:$/.test(location.protocol) ? location.origin + location.pathname : 'https://din-adresse.no';
+const epostEmne = a => `Forespørsel om tilbud: ${a.tittel} (skadesak ${a.skadenr})`;
+function epostTekst(a, navn) {
+  const linjer = [`Hei${trim(navn) ? ' ' + trim(navn) : ''},`, '',
+    `Storebrand ber om tilbud på: ${a.tittel}`, `Skadesak ${a.skadenr}, ${a.adresse}.`, '',
+    'Slik gir dere pris:', `1. Gå til ${portalAdresse()}`, `2. Skriv inn koden: ${KODE}`, '',
+    `Eller åpne denne lenken, så er koden fylt inn: ${portalAdresse()}#kode=${KODE}`, ''];
+  if (a.befaring) linjer.push(`Befaring: ${dato(a.befaring)}${trim(a.oppmote) ? ', ' + trim(a.oppmote) : ''}`);
+  if (a.frist_sporsmal) linjer.push(`Frist for spørsmål: ${datoDag(a.frist_sporsmal)}. Spørsmål stilles i portalen.`);
+  linjer.push(`Tilbudsfrist: ${dato(a.frist)}`, '', 'Koden er personlig. Ikke del den med andre.', '',
+    'Med vennlig hilsen', a.takst_navn, ...[a.takst_firma, a.takst_tlf].filter(trim));
+  return linjer.join('\n');
+}
+function aapneEpost(til, emne, tekst) {
+  const lenke = document.createElement('a');
+  lenke.href = `mailto:${encodeURIComponent(til || '')}?subject=${encodeURIComponent(emne)}&body=${encodeURIComponent(tekst.replace(/\r?\n/g, '\r\n'))}`;
+  document.body.appendChild(lenke); lenke.click(); lenke.remove();
+}
+function vInviter(a) {
+  const u = S.invUtkast, nk = S.nyKode;
+  if (nk) return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 3 av 3</span><h2>Har du sendt e-posten?</h2></div>
+      <div class="box warn small"><strong>Koden for ${esc(nk.navn)} vises bare nå.</strong> Den lagres ikke i klartekst, så du kan ikke hente den frem igjen.</div>
+      <div class="code">${esc(nk.kode)}</div>
+      <p>${nk.epost ? `E-posten til <strong>${esc(nk.epost)}</strong> skal nå være åpnet i e-postprogrammet ditt, ferdig utfylt. Se over og trykk send der.`
+        : 'Kopier teksten og send den til leverandøren selv.'}</p>
+      <div class="row">${nk.epost ? '<button data-act="aapneIgjen">Åpne e-posten igjen</button>' : ''}<button data-act="kopierTekst">Kopier teksten</button><button class="ghost" data-act="kopierKode">Kopier bare koden</button>
+        ${api.demo ? `<button class="ghost" data-act="provSom" data-kode="${esc(nk.kode)}">Prøv som leverandør →</button>` : ''}</div>
+      <div class="row"><button class="pri" data-act="merkSendt" data-id="${nk.id}">Ja, marker som sendt</button><button data-act="lukkKode">Ikke ennå</button></div>
+    </section>`;
+  if (u) return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 2 av 3</span><h2>Se over e-posten</h2>
+        <p class="sub">Ingenting sendes fra portalen. Du sender selv fra ditt eget e-postprogram.</p></div>
+      <div class="epost">
+        <div class="epost-rad"><span>Fra</span><div>Din egen e-postadresse <span class="muted small">(åpnes i e-postprogrammet ditt, for eksempel Outlook)</span></div></div>
+        <div class="epost-rad"><span>Til</span><div>${u.epost ? `<strong>${esc(u.epost)}</strong>` : '<span class="muted">Ingen e-post. Du kopierer teksten og sender selv.</span>'}</div></div>
+        <label class="epost-rad"><span>Emne</span><input id="invEmne" value="${esc(u.emne)}"></label>
+        <textarea id="invTekst" rows="18" aria-label="Tekst i e-posten">${esc(u.tekst)}</textarea>
+      </div>
+      <p class="hint">${KODE} byttes ut med leverandørens personlige kode når du trykker på knappen. Send én e-post per leverandør, aldri flere på samme e-post.</p>
+      <div class="row"><button class="pri" data-act="lagOgSend">${u.epost ? 'Lag kode og åpne e-post' : 'Lag kode'}</button><button data-act="invTilbake">Tilbake</button></div>
+    </section>`;
+  return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 1 av 3</span><h2>Inviter leverandør</h2>
+      <p class="sub">Du ser e-posten før noe sendes. Den sendes fra din egen e-post, ikke fra portalen.</p></div>
+    <form class="grid2" data-form="inviter">
+      <label class="f">Firmanavn<input id="invnavn" placeholder="Firma AS" required></label>
+      <label class="f"><span>E-post <em>(valgfritt)</em></span><input id="invepost" type="email" placeholder="post@firma.no"></label>
+      <div class="row" style="align-self:end"><button class="pri" type="submit">Se e-posten</button></div>
+    </form>
+  </section>`;
+}
+
 /* ---------- anbud (utsendt / avsluttet) ---------- */
 function vAnbud() {
   const { anbud: a, invitasjoner: inv, tilbud: t } = S.aktiv;
@@ -936,11 +998,10 @@ function vAnbud() {
 
   const invRader = inv.map(v => { const lev = t.find(x => x.invitasjon_id === v.id);
     return `<tr><td>${esc(v.leverandor)}${v.epost ? `<br><span class="small muted">${esc(v.epost)}</span>` : ''}</td><td class="mono small">••••-${esc(v.kode_slutt)}</td>
-      <td class="small">${lev ? `<span class="pos">Levert</span>` : v.sist_aapnet ? `Åpnet ${dato(v.sist_aapnet)}` : '<span class="muted">Ikke åpnet</span>'}</td>
-      <td>${!avsluttet && !lev ? `<button class="ghost danger small" data-act="slettInv" data-id="${v.id}">Trekk tilbake</button>` : ''}</td></tr>`; }).join('');
+      <td class="small">${lev ? `<span class="pos">Levert</span>` : v.sist_aapnet ? `Åpnet ${dato(v.sist_aapnet)}` : v.sendt ? `Sendt ${dato(v.sendt)}` : '<span class="qa-varsel">Ikke sendt</span>'}</td>
+      <td><div class="row" style="gap:4px;justify-content:flex-end">${!avsluttet && !lev && !v.sendt && !v.sist_aapnet ? `<button class="small" data-act="merkSendt" data-id="${v.id}">Marker som sendt</button>` : ''}
+        ${!avsluttet && !lev ? `<button class="ghost danger small" data-act="slettInv" data-id="${v.id}">Trekk tilbake</button>` : ''}</div></td></tr>`; }).join('');
 
-  const nk = S.nyKode;
-  const invTekst = nk ? `Hei!\n\nDere er invitert til å gi pris på: ${a.tittel}\nSkadesak ${a.skadenr} (${a.skadetype}, ${a.adresse}).\n\nGå til ${api.demo ? 'https://din-adresse.no' : location.origin} og skriv inn denne koden:\n${nk.kode}\n\nFrist for tilbud: ${dato(a.frist)}.\nKoden er personlig. Ikke del den med andre.` : '';
 
   return `<button class="link back" data-act="liste">← Alle anbud</button>
     <div class="row between"><div class="stack" style="gap:4px"><h1 class="mono" style="font-family:var(--f-mono);font-size:1.5rem">${esc(a.skadenr)}</h1>
@@ -957,19 +1018,7 @@ function vAnbud() {
     ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
     ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva. Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
-    ${!avsluttet ? `<section class="panel"><h2>Inviter leverandør</h2>
-      <form class="grid2" data-form="inviter">
-        <label class="f">Firmanavn<input id="invnavn" placeholder="Firma AS" required></label>
-        <label class="f">E-post (valgfritt)<input id="invepost" type="email" placeholder="post@firma.no"></label>
-        <div class="row" style="align-self:end"><button class="pri" type="submit">Lag kode</button></div>
-      </form>
-      ${nk ? `<div class="stack"><div class="box warn small"><strong>Koden for ${esc(nk.navn)} vises bare nå.</strong> Den lagres ikke i klartekst, så du kan ikke hente den frem igjen. Kopier den før du går videre.</div>
-        <div class="code">${esc(nk.kode)}</div>
-        <div class="row"><button data-act="kopierKode">Kopier koden</button><button data-act="kopierTekst">Kopier ferdig e-posttekst</button>
-          ${api.demo ? `<button class="ghost" data-act="provSom" data-kode="${esc(nk.kode)}">Prøv som leverandør →</button>` : ''}
-          <button class="ghost" data-act="lukkKode">Ferdig</button></div>
-        <textarea readonly id="invtekst" rows="8" aria-label="Tekst til leverandøren">${esc(invTekst)}</textarea></div>` : ''}
-    </section>` : ''}
+    ${!avsluttet ? vInviter(a) : ''}
 
     <section class="panel"><h2>Invitasjoner</h2>
       ${inv.length ? `<div class="tw"><table><thead><tr><th>Leverandør</th><th>Kode</th><th>Status</th><th></th></tr></thead><tbody>${invRader}</tbody></table></div>` : '<p class="muted">Ingen invitert ennå.</p>'}
@@ -1130,7 +1179,7 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = ''; S.qaUtkast = {}; S.avklaring = '';
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null;
   if (d.anbud.status === 'utkast') { S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
@@ -1175,8 +1224,21 @@ document.addEventListener('click', e => {
     avlys: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'avlyst'); toast('Anbudet er avlyst'); await aapneAnbud(S.aktiv.anbud.id); }),
     slettInv: () => jobb(async () => { await api.slettInvitasjon(id); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Invitasjonen er trukket tilbake. Koden virker ikke lenger.'); keep(); }),
     kopierKode: () => kopier(S.nyKode.kode, 'Koden er kopiert'),
-    kopierTekst: () => kopier($('#invtekst').value, 'Teksten er kopiert'),
-    lukkKode: () => { S.nyKode = null; keep(); },
+    kopierTekst: () => kopier(S.nyKode.tekst, 'Teksten er kopiert'),
+    lukkKode: () => { S.nyKode = null; toast('Invitasjonen står som «Ikke sendt». Du kan markere den som sendt senere.'); keep(); },
+    invTilbake: () => { S.invUtkast = null; keep(); },
+    aapneIgjen: () => aapneEpost(S.nyKode.epost, S.nyKode.emne, S.nyKode.tekst),
+    lagOgSend: () => jobb(async () => {
+      const u = S.invUtkast;
+      if (!u.tekst.includes(KODE)) throw new Error(`Teksten må inneholde ${KODE}, ellers får ikke leverandøren koden.`);
+      if (!trim(u.emne)) throw new Error('Skriv et emne.');
+      const r = await api.lagInvitasjon(S.aktiv.anbud.id, u.navn, u.epost);
+      const tekst = u.tekst.split(KODE).join(r.kode);
+      S.nyKode = { ...r, navn: u.navn, epost: u.epost, emne: u.emne, tekst }; S.invUtkast = null;
+      if (u.epost) aapneEpost(u.epost, u.emne, tekst);
+      S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); keep(); }),
+    merkSendt: () => jobb(async () => { await api.merkSendt(id); if (S.nyKode?.id === id) S.nyKode = null;
+      S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Markert som sendt'); keep(); }),
     provSom: () => jobb(() => levAapne(el.dataset.kode)),
     fyllkode: () => { $('#kode').value = el.dataset.kode; },
     kopierTsv: () => kopier(S._tsv, 'Kopiert. Lim inn i Excel.'),
@@ -1239,8 +1301,10 @@ document.addEventListener('submit', e => {
   if (f === 'kode') { const k = $('#kode').value; if (!trim(k)) { S.feil = ['Skriv inn koden.']; return render(); } jobb(() => levAapne(k)); }
   if (f === 'login') jobb(async () => { await api.loggInn($('#epost').value, $('#passord').value); await tilAdmin(); });
   if (f === 'mfa') jobb(async () => { await api.mfaBekreft(S.mfa.faktorId, $('#mfakode').value.trim()); S.mfa = null; await tilAdmin(); });
-  if (f === 'inviter') jobb(async () => { const navn = $('#invnavn').value, ep = $('#invepost').value; const r = await api.lagInvitasjon(S.aktiv.anbud.id, navn, ep);
-    S.nyKode = { ...r, navn: trim(navn) }; S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); keep(); });
+  if (f === 'inviter') { const navn = trim($('#invnavn').value), ep = trim($('#invepost').value);
+    if (!navn) { S.feil = ['Skriv inn navnet på leverandøren.']; return keep(); }
+    if (ep && !epostOk(ep)) { S.feil = ['E-postadressen ser ikke riktig ut.']; return keep(); }
+    S.feil = []; S.invUtkast = { navn, epost: ep, emne: epostEmne(S.aktiv.anbud), tekst: epostTekst(S.aktiv.anbud, '') }; keep(); }
   if (f === 'frist') jobb(async () => {
     const v = $('#nyfrist').value; if (!v) throw new Error('Velg tilbudsfrist.');
     const b = $('#nybefaring').value, sp = $('#nysporsmal').value;
@@ -1254,6 +1318,8 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'begr') { S.begrunnelse = t.value; return; }
   if (t.id === 'avklaring') { S.avklaring = t.value; return; }
+  if (t.id === 'invEmne') { S.invUtkast.emne = t.value; return; }
+  if (t.id === 'invTekst') { S.invUtkast.tekst = t.value; return; }
   if (t.dataset.qt || t.dataset.qs) { const id = t.dataset.qt || t.dataset.qs; const s = S.aktiv.sporsmal.find(x => x.id === id);
     const d = S.qaUtkast[id] ||= { tekst: s.sporsmal, svar: '' }; if (t.dataset.qt) d.tekst = t.value; else d.svar = t.value; return; }
   if (t.dataset.lq) { S.lev.sporsmal = t.value; return; }
