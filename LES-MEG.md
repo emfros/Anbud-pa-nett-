@@ -84,6 +84,16 @@ Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send m
 
 Når du sammenligner, ser du byggetid, oppstart, timepris og forbehold ved siden av prisen.
 
+## Spørsmål og svar
+
+- **Leverandøren** stiller spørsmål i portalen, frem til frist for spørsmål (eller tilbudsfristen hvis du ikke har satt en egen frist). Maks 20 spørsmål per leverandør.
+- **Du** ser hvem som spurte. Før du publiserer, kan du skrive om spørsmålet så det ikke avslører hvem som spør.
+- **Svaret publiseres til alle** leverandørene på samme anbud. De ser aldri hvem som spurte.
+- Du kan også legge ut en **avklaring** til alle, uten at noen har spurt.
+- **Publiserte svar kan ikke endres eller slettes.** Har du skrevet feil, legger du ut en avklaring.
+- Leverandøren får beskjed om nye svar siden sist. Kommer det svar etter at de har levert, blir de bedt om å sjekke om tilbudet må endres.
+- Det sendes ingen e-post. I listen over anbud ser du hvor mange spørsmål som venter på svar.
+
 ## Har du allerede satt opp databasen?
 
 Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alt som ligger i databasen fra før blir slettet.** Det går fint så lenge du bare har testdata.
@@ -98,6 +108,9 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 | Leverandør ser kalkylen din | Kalkylen sendes aldri ut. Testet. |
 | Noen jukser med summen i nettleseren | Summen regnes ut på serveren, ut fra mengdene i anbudet. |
 | Anbudet endres etter at tilbud er gitt | Beskrivelse, vilkår, poster og kalkyle låses når anbudet sendes ut. Bare frister og befaring kan endres etterpå. |
+| Leverandør får vite hvem som spurte | Leverandørene ser bare den publiserte teksten, aldri hvem som spurte. Du kan skrive om spørsmålet før du publiserer. |
+| Svar endres i ettertid | Publiserte svar og avklaringer kan ikke endres eller slettes, heller ikke av deg. |
+| Leverandør fyller portalen med spørsmål | Maks 20 spørsmål per leverandør, og bare frem til frist for spørsmål. |
 | Ufullstendige tilbud | Databasen avviser tilbud uten byggetid, oppstart, timepris og bekreftelse av kravene. |
 | Noen stjeler passordet ditt | Alt krever tofaktor. Uten det ser du ingenting, selv med riktig passord. |
 | Tilbud etter fristen | Databasen avviser det, uansett hva nettsiden sier. |
@@ -105,8 +118,8 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 63 tester av tilgangsreglene og de nye feltene. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene og sammenligningen.
+- **Databasen:** kjørt i ekte Postgres med 90 tester av tilgangsreglene, de nye feltene og spørsmål og svar. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen og spørsmål og svar.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen

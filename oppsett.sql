@@ -7,7 +7,9 @@
 --  Prinsippene:
 --  * Bare du (innlogget MED tofaktor) kan lese og endre anbud.
 --  * Leverandører har INGEN direkte tilgang til tabellene. De kan bare
---    kalle to funksjoner, og må oppgi en gyldig kode hver gang.
+--    kalle tre funksjoner (hent, send tilbud, still spørsmål), og må
+--    oppgi en gyldig kode hver gang.
+--  * Spørsmål og svar deles med alle leverandørene, men aldri hvem som spurte.
 --  * Koden lagres aldri i klartekst – bare et "fingeravtrykk" (hash).
 --  * Kalkylen din sendes aldri til leverandører.
 --  * Summen regnes ut på serveren, ikke i nettleseren.
@@ -15,6 +17,10 @@
 -- =====================================================================
 
 drop view  if exists public.aarsoversikt;
+drop table if exists public.sporsmal cascade;
+drop function if exists public.sporsmal_vakt();
+drop function if exists public.leverandor_sporsmal(text, text);
+drop function if exists public.sporsmal_stengt(public.anbud);
 drop table if exists public.kodeforsok cascade;
 drop table if exists public.tilbud cascade;
 drop table if exists public.invitasjon cascade;
@@ -307,10 +313,140 @@ begin
   return inv;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Spørsmål og svar
+--  * Leverandøren stiller spørsmål i portalen (frem til frist for spørsmål).
+--  * Saksbehandler ser hvem som spurte, kan omformulere spørsmålet så det
+--    ikke avslører avsender, og publiserer svaret til ALLE leverandørene.
+--  * Saksbehandler kan også legge ut en avklaring uten at noen har spurt.
+--  * Publiserte svar kan ikke endres eller slettes. Rettelser blir en ny avklaring.
+-- ---------------------------------------------------------------------
+
+create table public.sporsmal (
+  id              uuid primary key default gen_random_uuid(),
+  anbud_id        uuid not null references public.anbud(id) on delete cascade,
+  eier            uuid not null default auth.uid(),
+  invitasjon_id   uuid references public.invitasjon(id) on delete set null,  -- tom = avklaring fra saksbehandler
+  sporsmal        text not null default '' check (char_length(sporsmal) <= 2000),  -- slik leverandøren skrev det
+  publisert_tekst text check (char_length(publisert_tekst) <= 2000),               -- slik alle ser det
+  svar            text check (char_length(svar) <= 5000),
+  opprettet       timestamptz not null default now(),
+  publisert       timestamptz
+);
+create index on public.sporsmal (anbud_id);
+
+-- Hvorfor leverandørene ikke kan stille spørsmål akkurat nå (tom = de kan)
+create function public.sporsmal_stengt(a public.anbud) returns text
+language sql stable as $$
+  select case
+    when a.status <> 'utsendt' then 'Anbudet er stengt.'
+    when now() >= a.frist then 'Fristen har gått ut.'
+    when a.frist_sporsmal is not null and (now() at time zone 'Europe/Oslo')::date > a.frist_sporsmal
+      then 'Fristen for spørsmål har gått ut.'
+  end
+$$;
+
+create function public.sporsmal_vakt() returns trigger
+language plpgsql as $$
+declare st text;
+begin
+  if tg_op = 'DELETE' then
+    -- Slettes hele anbudet, følger spørsmålene med. Ellers kan publiserte svar ikke slettes.
+    if old.publisert is not null and exists (select 1 from public.anbud where id = old.anbud_id) then
+      raise exception 'Publiserte svar kan ikke slettes. Legg ut en avklaring i stedet.';
+    end if;
+    return old;
+  end if;
+
+  if tg_op = 'INSERT' then
+    select status into st from public.anbud where id = new.anbud_id;
+    if st is distinct from 'utsendt' then
+      raise exception 'Spørsmål og svar er stengt for dette anbudet.';
+    end if;
+    if new.invitasjon_id is null then           -- avklaring fra saksbehandler
+      if coalesce(btrim(new.svar), '') = '' then raise exception 'Skriv avklaringen.'; end if;
+      new.sporsmal := ''; new.svar := btrim(new.svar);
+      new.publisert_tekst := nullif(btrim(new.publisert_tekst), '');
+      new.publisert := now();
+    else                                         -- spørsmål fra leverandør
+      new.svar := null; new.publisert_tekst := null; new.publisert := null;
+    end if;
+    new.opprettet := now();
+    return new;
+  end if;
+
+  -- UPDATE
+  if old.publisert is not null then
+    if (new.anbud_id, new.sporsmal, new.publisert_tekst, new.svar, new.publisert, new.opprettet)
+       is distinct from (old.anbud_id, old.sporsmal, old.publisert_tekst, old.svar, old.publisert, old.opprettet) then
+      raise exception 'Publiserte svar kan ikke endres. Legg ut en avklaring i stedet.';
+    end if;
+    return new;
+  end if;
+  if (new.anbud_id, new.sporsmal, new.opprettet) is distinct from (old.anbud_id, old.sporsmal, old.opprettet) then
+    raise exception 'Spørsmålet slik leverandøren skrev det kan ikke endres.';
+  end if;
+  if new.publisert is not null then              -- publiser nå
+    select status into st from public.anbud where id = new.anbud_id;
+    if st is distinct from 'utsendt' then
+      raise exception 'Anbudet er avsluttet. Svar kan ikke publiseres.';
+    end if;
+    if coalesce(btrim(new.svar), '') = '' then raise exception 'Skriv et svar før du publiserer.'; end if;
+    new.svar := btrim(new.svar);
+    new.publisert_tekst := coalesce(nullif(btrim(new.publisert_tekst), ''), old.sporsmal);
+    new.publisert := now();
+  end if;
+  return new;
+end $$;
+
+create trigger sporsmal_vakt before insert or update or delete on public.sporsmal
+  for each row execute function public.sporsmal_vakt();
+
+alter table public.sporsmal enable row level security;
+create policy sporsmal_les on public.sporsmal for select to authenticated
+  using (public.er_admin() and eier = auth.uid());
+create policy sporsmal_endre on public.sporsmal for update to authenticated
+  using (public.er_admin() and eier = auth.uid()) with check (public.er_admin() and eier = auth.uid());
+create policy sporsmal_slett on public.sporsmal for delete to authenticated
+  using (public.er_admin() and eier = auth.uid());
+-- Saksbehandler kan bare legge inn avklaringer selv. Spørsmål kommer fra leverandørene.
+create policy sporsmal_avklaring on public.sporsmal for insert to authenticated
+  with check (public.er_admin() and eier = auth.uid() and invitasjon_id is null
+              and exists (select 1 from public.anbud a where a.id = anbud_id and a.eier = auth.uid()));
+revoke all on public.sporsmal from anon;
+
+create function public.leverandor_sporsmal(p_kode text, p_tekst text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare inv invitasjon; a anbud; grunn text; tekst text := btrim(coalesce(p_tekst, '')); ny sporsmal;
+begin
+  inv := tilbud_finn(p_kode);
+  if inv.id is null then
+    return jsonb_build_object('ok', false, 'feil', 'Koden er ikke gyldig.');
+  end if;
+  select * into a from anbud where id = inv.anbud_id;
+  grunn := sporsmal_stengt(a);
+  if grunn is not null then
+    return jsonb_build_object('ok', false, 'feil', grunn);
+  end if;
+  if char_length(tekst) < 5 then
+    return jsonb_build_object('ok', false, 'feil', 'Skriv spørsmålet.');
+  end if;
+  if char_length(tekst) > 2000 then
+    return jsonb_build_object('ok', false, 'feil', 'Spørsmålet er for langt (maks 2000 tegn).');
+  end if;
+  if (select count(*) from sporsmal where invitasjon_id = inv.id) >= 20 then
+    return jsonb_build_object('ok', false, 'feil', 'Dere har nådd grensen på 20 spørsmål. Kontakt takstmannen direkte.');
+  end if;
+  insert into sporsmal (anbud_id, eier, invitasjon_id, sporsmal)
+  values (a.id, a.eier, inv.id, tekst) returning * into ny;
+  return jsonb_build_object('ok', true, 'opprettet', ny.opprettet);
+end $$;
+
 create function public.leverandor_hent(p_kode text)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare inv invitasjon; a anbud; t tilbud;
+declare inv invitasjon; a anbud; t tilbud; forrige timestamptz;
 begin
   inv := tilbud_finn(p_kode);
   if inv.id is null then
@@ -323,11 +459,23 @@ begin
   if a.status = 'avlyst' then
     return jsonb_build_object('ok', false, 'feil', 'Anbudet er avlyst.');
   end if;
+  forrige := inv.sist_aapnet;
   update invitasjon set sist_aapnet = now() where id = inv.id;
   select * into t from tilbud where invitasjon_id = inv.id;
   return jsonb_build_object(
     'ok', true,
     'leverandor', inv.leverandor,
+    'forrige_besok', forrige,
+    'sporsmal_stengt', sporsmal_stengt(a),
+    -- Publiserte spørsmål og svar: aldri hvem som spurte
+    'qa', (select coalesce(jsonb_agg(jsonb_build_object(
+              'sporsmal', s.publisert_tekst, 'svar', s.svar, 'publisert', s.publisert,
+              'avklaring', s.sporsmal = '') order by s.publisert), '[]'::jsonb)
+           from sporsmal s where s.anbud_id = a.id and s.publisert is not null),
+    -- Egne spørsmål som venter på svar
+    'mine', (select coalesce(jsonb_agg(jsonb_build_object('sporsmal', s.sporsmal, 'opprettet', s.opprettet)
+              order by s.opprettet), '[]'::jsonb)
+           from sporsmal s where s.invitasjon_id = inv.id and s.publisert is null),
     'aapen', a.status = 'utsendt' and now() < a.frist,
     'anbud', jsonb_build_object(              -- NB: ingen kalkyle her
       'skadenr', a.skadenr, 'adresse', a.adresse, 'skadetype', a.skadetype,
@@ -440,6 +588,9 @@ revoke execute on function public.leverandor_send(text, jsonb) from public;
 grant  execute on function public.lag_invitasjon(uuid, text, text) to authenticated;
 grant  execute on function public.leverandor_hent(text) to anon, authenticated;
 grant  execute on function public.leverandor_send(text, jsonb) to anon, authenticated;
+revoke execute on function public.leverandor_sporsmal(text, text) from public;
+grant  execute on function public.leverandor_sporsmal(text, text) to anon, authenticated;
+revoke execute on function public.sporsmal_stengt(public.anbud) from public, anon;
 
 -- ---------------------------------------------------------------------
 -- Årsoversikt: én rad per anbud, klar for besparelse per år.

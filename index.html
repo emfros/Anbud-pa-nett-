@@ -212,6 +212,17 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
 .med-enhet span { font-size: 13px; color: var(--n500); font-weight: 400; white-space: nowrap }
 .bekreft { display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; background: var(--n0); border: 1px solid var(--n200); border-radius: 16px; font-size: 15px; color: var(--n800); cursor: pointer }
 .bekreft input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--red-600) }
+
+/* spørsmål og svar */
+.qa-item { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--n200); border-radius: 14px; background: var(--n0) }
+.qa-item.vent { border-color: var(--warn-line); background: var(--warn-50) }
+.qa-meta { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--n500) }
+.qa-q { font-weight: 600; color: var(--n900); white-space: pre-line }
+.qa-a { white-space: pre-line; max-width: 70ch }
+.qa-item blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--warn-line); background: var(--n0); border-radius: 0 8px 8px 0; white-space: pre-line; color: var(--n800) }
+.qa-ny { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--n200) }
+.badge.ny { background: var(--red-600); color: var(--n0) }
+.qa-varsel { color: var(--warn); font-weight: 600 }
 .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ok-50); color: var(--ok); white-space: nowrap }
 .badge.w { background: var(--warn-50); color: var(--warn) }
 
@@ -384,14 +395,21 @@ function supabaseApi(sb) {
       const a = ut(await sb.from('anbud').select('id,skadenr,adresse,skadetype,frist,status,kalkyle_sum,opprettet').order('opprettet', { ascending: false }));
       const inv = ut(await sb.from('invitasjon').select('anbud_id'));
       const t = ut(await sb.from('tilbud').select('anbud_id'));
-      return a.map(x => ({ ...x, antallInv: inv.filter(i => i.anbud_id === x.id).length, antallTilbud: t.filter(i => i.anbud_id === x.id).length }));
+      const sp = ut(await sb.from('sporsmal').select('anbud_id').is('publisert', null));
+      return a.map(x => ({ ...x, antallInv: inv.filter(i => i.anbud_id === x.id).length, antallTilbud: t.filter(i => i.anbud_id === x.id).length,
+        ubesvarte: sp.filter(i => i.anbud_id === x.id).length }));
     },
     async hentAnbud(id) {
       const anbud = ut(await sb.from('anbud').select('*').eq('id', id).single());
       const invitasjoner = ut(await sb.from('invitasjon').select('id,leverandor,epost,kode_slutt,sist_aapnet,opprettet').eq('anbud_id', id).order('opprettet'));
       const tilbud = ut(await sb.from('tilbud').select('*').eq('anbud_id', id));
-      return { anbud, invitasjoner, tilbud };
+      const sporsmal = ut(await sb.from('sporsmal').select('id,invitasjon_id,sporsmal,publisert_tekst,svar,opprettet,publisert').eq('anbud_id', id).order('opprettet'));
+      return { anbud, invitasjoner, tilbud, sporsmal };
     },
+    async publiserSvar(id, tekst, svar) { ut(await sb.from('sporsmal').update({ publisert_tekst: tekst, svar, publisert: new Date().toISOString() }).eq('id', id)); },
+    async slettSporsmal(id) { ut(await sb.from('sporsmal').delete().eq('id', id)); },
+    async lagAvklaring(anbudId, tekst) { ut(await sb.from('sporsmal').insert({ anbud_id: anbudId, svar: tekst })); },
+    async levSporsmal(kode, tekst) { return ut(await sb.rpc('leverandor_sporsmal', { p_kode: kode, p_tekst: tekst })); },
     async lagreAnbud(x) {
       const felt = Object.fromEntries(ANBUD_FELT.map(k => [k, x[k]]));
       if (x.id) return ut(await sb.from('anbud').update(felt).eq('id', x.id).select().single());
@@ -412,7 +430,7 @@ function supabaseApi(sb) {
    Demo-versjon: samme regler som databasen, men alt ligger i minnet.
    ===================================================================== */
 function demoApi() {
-  const db = { anbud: [], inv: [], tilbud: [] };
+  const db = { anbud: [], inv: [], tilbud: [], sporsmal: [] };
   const kopi = o => JSON.parse(JSON.stringify(o));
   const lagKode = () => { const h = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('').toUpperCase(); return h.match(/.{4}/g).join('-'); };
   const ren = k => String(k || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -491,6 +509,15 @@ function demoApi() {
   tilbud(ib2, 'Kolsås Snekker AS', '987654325', 'Per Kolstad', { b1: 9800, b2: 1240, b3: 360, b4: 720 }, 'Prisene forutsetter fri adkomst med lift.', dager(-1),
     { uker: 4, start: dagFra(dager(7)), time: 695, fb: { pc: 'Maling utføres når det er over 8 °C. Ellers neste vår.' } });
 
+  const sp = (anbud, inv, sporsmal, tekst, svar, opprettet, publisert) => db.sporsmal.push({ id: nyId('s'), anbud_id: anbud.id, invitasjon_id: inv ? inv.id : null,
+    sporsmal, publisert_tekst: tekst, svar, opprettet, publisert });
+  sp(A, ia3, 'Hei, Ali fra Grorud her. Skal dere ha nye sluk, eller kan de gamle brukes?', 'Skal det monteres nye sluk?', 'Ja. Nytt sluk skal prises i post 1.5.', dager(-27), dager(-26));
+  sp(B, ib1, 'Skal gammel kledning kjøres bort av entreprenør?', 'Skal gammel kledning kjøres bort av entreprenør?', 'Ja. Avfall inngår i rigg og drift (post 1.1).', dager(-3), dager(-2));
+  sp(B, null, '', null, 'Takrenne og vindskie skal ha samme farge som eksisterende (sort).', dager(-2), dager(-2) );
+  sp(B, ib2, 'Hei, dette er Per i Kolsås Snekker. Kan vi bruke lift fra naboeiendommen i nord?', null, null, dager(-0.3), null);
+  const sporsmalStengt = a => a.status !== 'utsendt' ? 'Anbudet er stengt.' : new Date(a.frist) <= new Date() ? 'Fristen har gått ut.'
+    : a.frist_sporsmal && dagFra(new Date().toISOString()) > a.frist_sporsmal ? 'Fristen for spørsmål har gått ut.' : null;
+
   const sjekkStatus = (a, status, ekstra) => {
     if (['tildelt', 'avlyst'].includes(a.status)) throw new Error('Saken er avsluttet og kan ikke åpnes igjen.');
     if (status === 'utsendt') {
@@ -520,9 +547,28 @@ function demoApi() {
     async sesjon() { return this._inne ? { epost: 'emil@demo.no', aal: 'aal2' } : null; },
     async loggInn() { await vent(); this._inne = true; },
     async loggUt() { this._inne = false; },
-    async listAnbud() { await vent(); return kopi(db.anbud.map(a => ({ ...a, antallInv: db.inv.filter(i => i.anbud_id === a.id).length, antallTilbud: db.tilbud.filter(t => t.anbud_id === a.id).length }))).sort((a, b) => b.opprettet.localeCompare(a.opprettet)); },
+    async listAnbud() { await vent(); return kopi(db.anbud.map(a => ({ ...a, antallInv: db.inv.filter(i => i.anbud_id === a.id).length, antallTilbud: db.tilbud.filter(t => t.anbud_id === a.id).length,
+      ubesvarte: db.sporsmal.filter(s => s.anbud_id === a.id && !s.publisert).length }))).sort((a, b) => b.opprettet.localeCompare(a.opprettet)); },
     async hentAnbud(id) { await vent(); const a = db.anbud.find(x => x.id === id); if (!a) throw new Error('Fant ikke anbudet.');
-      return kopi({ anbud: a, invitasjoner: db.inv.filter(i => i.anbud_id === id).map(({ kode, ...r }) => r), tilbud: db.tilbud.filter(t => t.anbud_id === id) }); },
+      return kopi({ anbud: a, invitasjoner: db.inv.filter(i => i.anbud_id === id).map(({ kode, ...r }) => r), tilbud: db.tilbud.filter(t => t.anbud_id === id),
+        sporsmal: db.sporsmal.filter(s => s.anbud_id === id).sort((x, y) => x.opprettet.localeCompare(y.opprettet)) }); },
+    async publiserSvar(id, tekst, svar) { await vent(); const s = db.sporsmal.find(x => x.id === id); const a = db.anbud.find(x => x.id === s.anbud_id);
+      if (s.publisert) throw new Error('Publiserte svar kan ikke endres. Legg ut en avklaring i stedet.');
+      if (a.status !== 'utsendt') throw new Error('Anbudet er avsluttet. Svar kan ikke publiseres.');
+      if (!trim(svar)) throw new Error('Skriv et svar før du publiserer.');
+      Object.assign(s, { publisert_tekst: trim(tekst) || s.sporsmal, svar: trim(svar), publisert: new Date().toISOString() }); },
+    async slettSporsmal(id) { const s = db.sporsmal.find(x => x.id === id); if (s?.publisert) throw new Error('Publiserte svar kan ikke slettes. Legg ut en avklaring i stedet.');
+      db.sporsmal = db.sporsmal.filter(x => x.id !== id); },
+    async lagAvklaring(anbudId, tekst) { await vent(); const a = db.anbud.find(x => x.id === anbudId);
+      if (a.status !== 'utsendt') throw new Error('Spørsmål og svar er stengt for dette anbudet.');
+      if (!trim(tekst)) throw new Error('Skriv avklaringen.');
+      const n = new Date().toISOString(); db.sporsmal.push({ id: nyId('s'), anbud_id: anbudId, invitasjon_id: null, sporsmal: '', publisert_tekst: null, svar: trim(tekst), opprettet: n, publisert: n }); },
+    async levSporsmal(kode, tekst) { await vent(); const i = finn(kode); if (!i) return { ok: false, feil: 'Koden er ikke gyldig.' };
+      const a = db.anbud.find(x => x.id === i.anbud_id); const grunn = sporsmalStengt(a); if (grunn) return { ok: false, feil: grunn };
+      const t = trim(tekst); if (t.length < 5) return { ok: false, feil: 'Skriv spørsmålet.' }; if (t.length > 2000) return { ok: false, feil: 'Spørsmålet er for langt (maks 2000 tegn).' };
+      if (db.sporsmal.filter(s => s.invitasjon_id === i.id).length >= 20) return { ok: false, feil: 'Dere har nådd grensen på 20 spørsmål. Kontakt takstmannen direkte.' };
+      const n = new Date().toISOString(); db.sporsmal.push({ id: nyId('s'), anbud_id: a.id, invitasjon_id: i.id, sporsmal: t, publisert_tekst: null, svar: null, opprettet: n, publisert: null });
+      return { ok: true, opprettet: n }; },
     async lagreAnbud(x) { await vent(); sjekkDatoer(x);
       const felt = Object.fromEntries(ANBUD_FELT.map(k => [k, kopi(x[k] ?? null)]));
       if (x.id) { const a = db.anbud.find(y => y.id === x.id); if (a.status !== 'utkast') throw new Error('Poster og kalkyle er låst etter at anbudet er sendt ut.'); Object.assign(a, felt); return kopi(a); }
@@ -535,7 +581,8 @@ function demoApi() {
     async lagInvitasjon(anbudId, navn, epost) { await vent(); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
       const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sist_aapnet: null, opprettet: new Date().toISOString() };
       db.inv.push(i); return { id: i.id, kode: k }; },
-    async slettInvitasjon(id) { db.inv = db.inv.filter(i => i.id !== id); db.tilbud = db.tilbud.filter(t => t.invitasjon_id !== id); },
+    async slettInvitasjon(id) { db.inv = db.inv.filter(i => i.id !== id); db.tilbud = db.tilbud.filter(t => t.invitasjon_id !== id);
+      db.sporsmal.forEach(s => { if (s.invitasjon_id === id) s.invitasjon_id = null; }); },
     async aarsoversikt() { await vent();
       return db.anbud.map(a => { const t = db.tilbud.filter(x => x.anbud_id === a.id); const s = t.map(x => x.sum_eks_mva);
         const snitt = s.length ? s.reduce((p, c) => p + c, 0) / s.length : null; const tild = t.find(x => x.invitasjon_id === a.tildelt_invitasjon)?.sum_eks_mva ?? null;
@@ -546,8 +593,12 @@ function demoApi() {
       const a = db.anbud.find(x => x.id === i.anbud_id);
       if (a.status === 'utkast') return { ok: false, feil: 'Anbudet er ikke åpnet ennå.' };
       if (a.status === 'avlyst') return { ok: false, feil: 'Anbudet er avlyst.' };
-      i.sist_aapnet = new Date().toISOString(); const t = db.tilbud.find(x => x.invitasjon_id === i.id);
-      return kopi({ ok: true, leverandor: i.leverandor, aapen: a.status === 'utsendt' && new Date(a.frist) > new Date(),
+      const forrige = i.sist_aapnet; i.sist_aapnet = new Date().toISOString(); const t = db.tilbud.find(x => x.invitasjon_id === i.id);
+      const qa = db.sporsmal.filter(s => s.anbud_id === a.id && s.publisert).sort((x, y) => x.publisert.localeCompare(y.publisert))
+        .map(s => ({ sporsmal: s.publisert_tekst, svar: s.svar, publisert: s.publisert, avklaring: s.sporsmal === '' }));
+      const mine = db.sporsmal.filter(s => s.invitasjon_id === i.id && !s.publisert).map(s => ({ sporsmal: s.sporsmal, opprettet: s.opprettet }));
+      return kopi({ ok: true, leverandor: i.leverandor, forrige_besok: forrige, sporsmal_stengt: sporsmalStengt(a), qa, mine,
+        aapen: a.status === 'utsendt' && new Date(a.frist) > new Date(),
         anbud: forLeverandor(a), tilbud: t || null }); },
     async levSend(kode, t) { await vent(); const i = finn(kode); if (!i) return { ok: false, feil: 'Koden er ikke gyldig.' };
       const a = db.anbud.find(x => x.id === i.anbud_id);
@@ -575,7 +626,7 @@ function demoApi() {
    Tilstand og visninger
    ===================================================================== */
 let api;
-const S = { view: 'start', sesjon: null, liste: [], aktiv: null, utkast: null, feil: [], bekreft: null, nyKode: null, valgt: null, begrunnelse: '',
+const S = { view: 'start', sesjon: null, liste: [], aktiv: null, utkast: null, feil: [], bekreft: null, nyKode: null, valgt: null, begrunnelse: '', qaUtkast: {}, avklaring: '',
   lev: null, mfa: null, aar: null, laster: false };
 
 let toastTid;
@@ -659,7 +710,7 @@ function vListe() {
       <span class="t"><span class="mono">${esc(a.skadenr)}</span><span class="chip ${a.status}">${a.status}</span></span>
       <span class="r num">${kr(a.kalkyle_sum)}</span>
       <span class="muted small">${esc(a.adresse)} · ${esc(a.skadetype)}</span>
-      <span class="r small muted">${a.status === 'utsendt' ? `${a.antallTilbud} av ${a.antallInv} tilbud · ${igjen(a.frist)}` : a.status === 'utkast' ? 'Ikke sendt ut' : `${a.antallTilbud} tilbud · frist ${datoKort(a.frist)}`}</span>
+      <span class="r small muted">${a.ubesvarte ? `<span class="qa-varsel">${a.ubesvarte} spørsmål venter</span> · ` : ''}${a.status === 'utsendt' ? `${a.antallTilbud} av ${a.antallInv} tilbud · ${igjen(a.frist)}` : a.status === 'utkast' ? 'Ikke sendt ut' : `${a.antallTilbud} tilbud · frist ${datoKort(a.frist)}`}</span>
     </button>`).join('');
   return `<div class="row between"><h1>Anbud</h1><button class="pri" data-act="nytt">+ Nytt anbud</button></div>
     ${feilBoks()}
@@ -792,6 +843,62 @@ function anbudDeler(a) {
   };
 }
 
+/* ---------- spørsmål og svar (saksbehandler) ---------- */
+function vQaAdmin(a, inv, sporsmal, avsluttet) {
+  const navn = s => inv.find(v => v.id === s.invitasjon_id)?.leverandor || 'Leverandør som er trukket tilbake';
+  const ubesvarte = sporsmal.filter(s => !s.publisert);
+  const publiserte = sporsmal.filter(s => s.publisert).sort((x, y) => x.publisert.localeCompare(y.publisert));
+  const u = S.qaUtkast;
+  const grunn = a.status !== 'utsendt' ? 'Spørsmål og svar er stengt.' : new Date(a.frist) <= new Date() ? 'Tilbudsfristen har gått ut, så leverandørene kan ikke spørre mer.'
+    : `Leverandørene kan stille spørsmål til og med ${a.frist_sporsmal ? datoDag(a.frist_sporsmal) : datoDag(a.frist) + ' (tilbudsfristen)'}.`;
+  const vent = ubesvarte.map(s => { const d = u[s.id] || { tekst: s.sporsmal, svar: '' };
+    return `<div class="qa-item vent">
+      <div class="qa-meta"><span class="badge w">Venter på svar</span><span>Fra <strong>${esc(navn(s))}</strong> · ${dato(s.opprettet)}</span></div>
+      <blockquote>${esc(s.sporsmal)}</blockquote>
+      ${avsluttet ? '' : `<label class="f">Spørsmålet slik alle ser det<textarea data-qt="${s.id}" rows="2">${esc(d.tekst)}</textarea>
+        <span class="hint">Fjern navn og annet som viser hvem som spør.</span></label>
+      <label class="f">Svar<textarea data-qs="${s.id}" rows="3" placeholder="Svaret publiseres til alle leverandørene">${esc(d.svar)}</textarea></label>
+      ${S.bekreft === 'pub:' + s.id ? `<div class="confirm"><strong>Publisere svaret til alle leverandørene?</strong><p>Svaret kan ikke endres eller slettes etterpå.</p>
+          <div class="row"><button class="pri" data-act="pub" data-id="${s.id}">Ja, publiser</button><button data-act="avbryt">Avbryt</button></div></div>`
+        : S.bekreft === 'slettSp:' + s.id ? `<div class="confirm"><strong>Slette spørsmålet?</strong><p>Bruk dette bare for spørsmål som ikke skal besvares.</p>
+          <div class="row"><button class="danger" data-act="slettSp" data-id="${s.id}">Ja, slett</button><button data-act="avbryt">Avbryt</button></div></div>`
+        : `<div class="row"><button class="pri" data-act="spørPub" data-id="${s.id}">Publiser til alle</button><button class="ghost danger" data-act="spørSlettSp" data-id="${s.id}">Slett</button></div>`}`}
+    </div>`; }).join('');
+  const pub = publiserte.map(s => `<div class="qa-item">
+      <div class="qa-meta">${s.sporsmal === '' ? '<span class="badge">Avklaring</span>' : `<span>Fra <strong>${esc(navn(s))}</strong></span>`}<span>Publisert ${dato(s.publisert)}</span></div>
+      ${s.sporsmal === '' ? '' : `<p class="qa-q">${esc(s.publisert_tekst)}</p>`}<p class="qa-a">${esc(s.svar)}</p></div>`).join('');
+  return `<section class="panel" id="qa">
+    <div class="row between"><div class="steg-h"><h2>Spørsmål og svar</h2><p class="sub">Svarene publiseres til alle leverandørene. Hvem som spurte, vises aldri for de andre.</p></div>
+      ${ubesvarte.length ? `<span class="chip utkast">${ubesvarte.length} venter</span>` : ''}</div>
+    <p class="small muted">${grunn}</p>
+    ${vent}${pub}
+    ${!ubesvarte.length && !publiserte.length ? '<p class="muted">Ingen spørsmål ennå.</p>' : ''}
+    ${avsluttet ? '' : `<div class="qa-ny">
+      <label class="f"><span>Legg ut en avklaring til alle <em>(valgfritt)</em></span><textarea id="avklaring" rows="2" placeholder="F.eks. en rettelse eller noe alle bør vite">${esc(S.avklaring || '')}</textarea></label>
+      ${S.bekreft === 'avklaring' ? `<div class="confirm"><strong>Publisere avklaringen til alle?</strong><p>Den kan ikke endres eller slettes etterpå.</p>
+        <div class="row"><button class="pri" data-act="avklaring">Ja, publiser</button><button data-act="avbryt">Avbryt</button></div></div>`
+      : `<button data-act="spørAvklaring" class="back">Publiser avklaring</button>`}</div>`}
+  </section>`;
+}
+
+/* ---------- spørsmål og svar (leverandør) ---------- */
+function vQaLev(L) {
+  const d = L.data, forrige = d.forrige_besok ? new Date(d.forrige_besok) : null;
+  const nytt = s => forrige && new Date(s.publisert) > forrige;
+  return `<section class="panel" id="qa">
+    <div class="steg-h"><h2>Spørsmål og svar</h2><p class="sub">Spørsmål og svar deles med alle leverandørene. Navnet deres vises ikke.</p></div>
+    ${(d.qa || []).map(s => `<div class="qa-item">
+      <div class="qa-meta">${s.avklaring ? '<span class="badge">Avklaring</span>' : ''}${nytt(s) ? '<span class="badge ny">Nytt</span>' : ''}<span>${dato(s.publisert)}</span></div>
+      ${s.avklaring ? '' : `<p class="qa-q">${esc(s.sporsmal)}</p>`}<p class="qa-a">${esc(s.svar)}</p></div>`).join('')}
+    ${(d.mine || []).map(s => `<div class="qa-item vent"><div class="qa-meta"><span class="badge w">Venter på svar</span><span>Sendt ${dato(s.opprettet)}</span></div><p class="qa-q">${esc(s.sporsmal)}</p></div>`).join('')}
+    ${!(d.qa || []).length && !(d.mine || []).length ? '<p class="muted">Ingen spørsmål ennå.</p>' : ''}
+    ${d.sporsmal_stengt ? `<p class="small muted">${esc(d.sporsmal_stengt)}</p>` : `<div class="qa-ny">
+      <label class="f">Still et spørsmål<textarea data-lq="1" rows="3" maxlength="2000" placeholder="Spør om det dere trenger for å gi riktig pris.">${esc(L.sporsmal || '')}</textarea>
+        <span class="hint">${d.anbud.frist_sporsmal ? `Frist for spørsmål: ${datoDag(d.anbud.frist_sporsmal)}.` : ''} Svaret publiseres her.</span></label>
+      <button data-act="levSporsmal" class="back">Send spørsmål</button></div>`}
+  </section>`;
+}
+
 /* ---------- anbud (utsendt / avsluttet) ---------- */
 function vAnbud() {
   const { anbud: a, invitasjoner: inv, tilbud: t } = S.aktiv;
@@ -847,6 +954,7 @@ function vAnbud() {
     </section>
     <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
       <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
+    ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
     ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva. Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
     ${!avsluttet ? `<section class="panel"><h2>Inviter leverandør</h2>
@@ -936,13 +1044,19 @@ function vLev() {
     <label class="f lev-fb"><span>Forbehold for ${esc(b.navn)} <em>(valgfritt)</em></span><textarea data-lfb="${b.id}" rows="2" ${ro} placeholder="Bare forbehold som gjelder dette bygget.">${esc(f.forbehold_bygg[b.id] || '')}</textarea></label>
     </div>`).join('');
   const d = anbudDeler(a);
-  return `<section class="panel">
+  const forrige = L.data.forrige_besok ? new Date(L.data.forrige_besok) : null;
+  const nyeSvar = (L.data.qa || []).filter(s => forrige && new Date(s.publisert) > forrige).length;
+  const svarEtterLevert = L.data.tilbud && (L.data.qa || []).some(s => new Date(s.publisert) > new Date(L.data.tilbud.levert));
+  return `${svarEtterLevert && !laast ? `<div class="box warn"><strong>Det er publisert svar etter at dere leverte.</strong> Sjekk under «Spørsmål og svar» om tilbudet må endres.</div>`
+      : nyeSvar ? `<div class="box info">Det har kommet ${nyeSvar === 1 ? 'ett nytt svar' : nyeSvar + ' nye svar'} siden sist. Se «Spørsmål og svar».</div>` : ''}
+    <section class="panel">
       <div class="row between"><span class="small muted">Invitert: ${esc(L.data.leverandor)}</span><span class="chip ${laast ? 'avlyst' : 'utsendt'}">${laast ? 'Stengt' : igjen(a.frist)}</span></div>
       <div class="stack" style="gap:4px"><span class="step">Skadesak <span class="mono">${esc(a.skadenr)}</span></span><h1>${esc(trim(a.tittel) || 'Anbud')}</h1></div>
       ${d.fakta}
     </section>
     <section class="panel">${d.arbeid}</section>
     <section class="panel">${d.krav}</section>
+    ${vQaLev(L)}
     ${laast ? `<div class="box warn">Fristen har gått ut. ${L.data.tilbud ? 'Her er tilbudet dere leverte.' : 'Dere leverte ikke tilbud på dette anbudet.'}</div>`
       : L.data.tilbud ? `<div class="box info">Dere leverte ${dato(L.data.tilbud.levert)}. Dere kan endre og sende på nytt frem til fristen. Det siste tilbudet gjelder.</div>` : ''}
     <h2 class="del-h">Tilbudet deres</h2>
@@ -1016,7 +1130,7 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = '';
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = ''; S.qaUtkast = {}; S.avklaring = '';
   if (d.anbud.status === 'utkast') { S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
@@ -1067,6 +1181,20 @@ document.addEventListener('click', e => {
     fyllkode: () => { $('#kode').value = el.dataset.kode; },
     kopierTsv: () => kopier(S._tsv, 'Kopiert. Lim inn i Excel.'),
     levSend: () => levSend(),
+    levSporsmal: () => jobb(async () => {
+      const tekst = trim(S.lev.sporsmal); if (tekst.length < 5) throw new Error('Skriv spørsmålet.');
+      const r = await api.levSporsmal(S.lev.kode, tekst); if (!r.ok) throw new Error(r.feil);
+      S.lev.data.mine = [...(S.lev.data.mine || []), { sporsmal: tekst, opprettet: r.opprettet }]; S.lev.sporsmal = '';
+      toast('Spørsmålet er sendt. Svaret publiseres her til alle.'); keep(); }),
+    spørPub: () => { S.bekreft = 'pub:' + id; keep(); },
+    pub: () => jobb(async () => { const d = S.qaUtkast[id] || {}; const s = S.aktiv.sporsmal.find(x => x.id === id);
+      await api.publiserSvar(id, trim(d.tekst ?? s.sporsmal), trim(d.svar)); delete S.qaUtkast[id]; S.bekreft = null;
+      S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Svaret er publisert til alle leverandørene'); keep(); }),
+    spørSlettSp: () => { S.bekreft = 'slettSp:' + id; keep(); },
+    slettSp: () => jobb(async () => { await api.slettSporsmal(id); S.bekreft = null; S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Spørsmålet er slettet'); keep(); }),
+    spørAvklaring: () => { if (!trim(S.avklaring)) { S.feil = ['Skriv avklaringen først.']; return keep(); } S.feil = []; S.bekreft = 'avklaring'; keep(); },
+    avklaring: () => jobb(async () => { await api.lagAvklaring(S.aktiv.anbud.id, trim(S.avklaring)); S.avklaring = ''; S.bekreft = null;
+      S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Avklaringen er publisert til alle leverandørene'); keep(); }),
     levEndre: () => jobb(() => levAapne(S.lev.kode)),
     levut: () => { S.lev = null; S.view = 'start'; S.feil = []; S._kodeFyll = ''; render(); },
     skrivUt: () => window.print()
@@ -1125,6 +1253,10 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'begr') { S.begrunnelse = t.value; return; }
+  if (t.id === 'avklaring') { S.avklaring = t.value; return; }
+  if (t.dataset.qt || t.dataset.qs) { const id = t.dataset.qt || t.dataset.qs; const s = S.aktiv.sporsmal.find(x => x.id === id);
+    const d = S.qaUtkast[id] ||= { tekst: s.sporsmal, svar: '' }; if (t.dataset.qt) d.tekst = t.value; else d.svar = t.value; return; }
+  if (t.dataset.lq) { S.lev.sporsmal = t.value; return; }
   if (t.id === 'aarvalg') return;
   const u = S.utkast;
   if (t.dataset.f) { u[t.dataset.f] = t.type === 'datetime-local' ? (t.value ? new Date(t.value).toISOString() : '') : t.value; return; }
