@@ -5,7 +5,10 @@
 -- =====================================================================
 --
 --  Prinsippene:
---  * Bare du (innlogget MED tofaktor) kan lese og endre anbud.
+--  * To roller, begge må logge inn MED tofaktor:
+--      admin     – Storebrand. Ser alle anbud og årsoversikten, tildeler oppdrag, gir roller.
+--      takstmann – intern eller ekstern. Ser bare egne anbud. Anbefaler leverandør, men tildeler ikke.
+--    Nye brukere får rollen «venter» og ser ingenting før en admin gir dem rolle.
 --  * Leverandører har INGEN direkte tilgang til tabellene. De kan bare
 --    kalle tre funksjoner (hent, send tilbud, still spørsmål), og må
 --    oppgi en gyldig kode hver gang.
@@ -25,7 +28,13 @@ drop table if exists public.kodeforsok cascade;
 drop table if exists public.tilbud cascade;
 drop table if exists public.invitasjon cascade;
 drop table if exists public.anbud cascade;
-drop function if exists public.er_admin();
+drop trigger  if exists ny_bruker on auth.users;
+drop function if exists public.ny_bruker() cascade;
+drop function if exists public.kan_se_anbud(uuid) cascade;
+drop function if exists public.er_admin() cascade;
+drop function if exists public.er_innlogget() cascade;
+drop function if exists public.min_rolle() cascade;
+drop function if exists public.profil_vakt() cascade;
 drop function if exists public.lag_invitasjon(uuid, text, text);
 drop function if exists public.leverandor_hent(text);
 drop function if exists public.leverandor_send(text, jsonb);
@@ -38,12 +47,74 @@ drop function if exists public.orgnr_gyldig(text);
 -- Hjelpefunksjoner
 -- ---------------------------------------------------------------------
 
--- Innlogget, og har bekreftet tofaktor i denne økten?
-create function public.er_admin() returns boolean
-language sql stable as $$
-  select auth.uid() is not null
-     and coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+-- ---------------------------------------------------------------------
+-- Brukere og roller. Tabellen slettes IKKE når filen kjøres på nytt,
+-- så rollene du har gitt, blir stående.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.profil (
+  id        uuid primary key references auth.users(id) on delete cascade,
+  epost     text not null,
+  navn      text not null default '',
+  firma     text not null default '',
+  telefon   text not null default '',
+  rolle     text not null default 'venter' check (rolle in ('admin','takstmann','venter','sperret')),
+  type      text check (type in ('intern','ekstern')),   -- bare for takstmenn
+  opprettet timestamptz not null default now()
+);
+
+-- Alle brukere som finnes fra før, får en profil (rolle «venter»)
+insert into public.profil (id, epost)
+  select id, coalesce(email, '') from auth.users on conflict (id) do nothing;
+
+-- Nye brukere (lagt inn i Supabase) får automatisk en profil med rolle «venter»
+create function public.ny_bruker() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profil (id, epost) values (new.id, coalesce(new.email, '')) on conflict (id) do nothing;
+  return new;
+end $$;
+create trigger ny_bruker after insert on auth.users
+  for each row execute function public.ny_bruker();
+
+-- Rollen til den som er innlogget – bare hvis tofaktor er bekreftet i denne økten
+create function public.min_rolle() returns text
+language sql stable security definer set search_path = public as $$
+  select rolle from public.profil
+  where id = auth.uid() and coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
 $$;
+create function public.er_admin() returns boolean
+language sql stable as $$ select coalesce(public.min_rolle() = 'admin', false) $$;
+create function public.er_innlogget() returns boolean
+language sql stable as $$ select coalesce(public.min_rolle() in ('admin','takstmann'), false) $$;
+
+-- Ingen kan endre e-post eller id, og det må alltid finnes minst én admin
+create function public.profil_vakt() returns trigger
+language plpgsql as $$
+begin
+  if new.id is distinct from old.id or new.epost is distinct from old.epost then
+    raise exception 'E-post endres i Supabase, ikke her.';
+  end if;
+  if old.rolle = 'admin' and new.rolle <> 'admin'
+     and (select count(*) from public.profil where rolle = 'admin') <= 1 then
+    raise exception 'Det må alltid være minst én admin.';
+  end if;
+  if new.rolle <> 'takstmann' then new.type := null; end if;
+  return new;
+end $$;
+drop trigger if exists profil_vakt on public.profil;
+create trigger profil_vakt before update on public.profil
+  for each row execute function public.profil_vakt();
+
+alter table public.profil enable row level security;
+drop policy if exists profil_les on public.profil;
+drop policy if exists profil_endre on public.profil;
+create policy profil_les on public.profil for select to authenticated
+  using (id = auth.uid() or public.er_admin());
+create policy profil_endre on public.profil for update to authenticated
+  using (public.er_admin()) with check (public.er_admin());
+revoke all on public.profil from anon;
+revoke insert, delete on public.profil from authenticated;
 
 -- Norsk organisasjonsnummer: 9 siffer med kontrollsiffer (modulus 11)
 create function public.orgnr_gyldig(p text) returns boolean
@@ -106,6 +177,11 @@ create table public.anbud (
   kalkyle_sum   numeric(14,2),
   tildelt_invitasjon uuid,
   tildelt_begrunnelse text,
+  -- Takstmannens anbefaling. Bare admin (Storebrand) kan tildele.
+  anbefalt_invitasjon uuid,
+  anbefalt_begrunnelse text,
+  anbefalt_av   uuid,
+  anbefalt_tid  timestamptz,
   opprettet     timestamptz not null default now(),
   utsendt       timestamptz
 );
@@ -157,6 +233,16 @@ create index on public.tilbud (anbud_id);
 alter table public.anbud
   add constraint tildelt_fk foreign key (tildelt_invitasjon)
   references public.invitasjon(id) on delete set null deferrable initially deferred;
+alter table public.anbud
+  add constraint anbefalt_fk foreign key (anbefalt_invitasjon)
+  references public.invitasjon(id) on delete set null deferrable initially deferred;
+
+-- Kan den innloggede se dette anbudet? Admin ser alle, takstmann bare egne.
+create function public.kan_se_anbud(p_anbud uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.er_admin()
+      or (public.er_innlogget() and exists (select 1 from public.anbud where id = p_anbud and eier = auth.uid()))
+$$;
 
 -- ---------------------------------------------------------------------
 -- Tilgangsregler (RLS). Uten en regel som slipper deg inn, ser du ingenting.
@@ -167,21 +253,18 @@ alter table public.invitasjon enable row level security;
 alter table public.tilbud     enable row level security;
 alter table public.kodeforsok enable row level security;   -- ingen regler = ingen tilgang
 
-create policy anbud_eier on public.anbud for all to authenticated
-  using (public.er_admin() and eier = auth.uid())
-  with check (public.er_admin() and eier = auth.uid());
+create policy anbud_tilgang on public.anbud for all to authenticated
+  using (public.er_admin() or (public.er_innlogget() and eier = auth.uid()))
+  with check (public.er_admin() or (public.er_innlogget() and eier = auth.uid()));
 
-create policy invitasjon_eier on public.invitasjon for all to authenticated
-  using (public.er_admin() and eier = auth.uid())
-  with check (public.er_admin() and eier = auth.uid()
-              and exists (select 1 from public.anbud a
-                          where a.id = anbud_id and a.eier = auth.uid()));
+create policy invitasjon_tilgang on public.invitasjon for all to authenticated
+  using (public.kan_se_anbud(anbud_id))
+  with check (public.kan_se_anbud(anbud_id));
 
--- Tilbud kan du lese og slette, men ikke endre (det er leverandørens tall).
 create policy tilbud_les on public.tilbud for select to authenticated
-  using (public.er_admin() and eier = auth.uid());
+  using (public.kan_se_anbud(anbud_id));
 create policy tilbud_slett on public.tilbud for delete to authenticated
-  using (public.er_admin() and eier = auth.uid());
+  using (public.kan_se_anbud(anbud_id));
 
 -- Leverandører (anon) får ingen direkte tabelltilgang i det hele tatt.
 revoke all on public.anbud, public.invitasjon, public.tilbud, public.kodeforsok from anon;
@@ -201,7 +284,31 @@ begin
     if new.status <> 'utkast' then
       raise exception 'Et nytt anbud må starte som utkast.';
     end if;
+    new.anbefalt_invitasjon := null; new.anbefalt_begrunnelse := null; new.anbefalt_av := null; new.anbefalt_tid := null;
+    new.tildelt_invitasjon := null; new.tildelt_begrunnelse := null;
     return new;
+  end if;
+
+  -- Hvem som anbefalte og når, settes bare her
+  new.anbefalt_av := old.anbefalt_av; new.anbefalt_tid := old.anbefalt_tid;
+  if (new.anbefalt_invitasjon, new.anbefalt_begrunnelse) is distinct from (old.anbefalt_invitasjon, old.anbefalt_begrunnelse) then
+    if old.status <> 'utsendt' then
+      raise exception 'Anbudet er avsluttet. Anbefalingen kan ikke endres.';
+    end if;
+    if new.anbefalt_invitasjon is null then
+      new.anbefalt_begrunnelse := null; new.anbefalt_av := null; new.anbefalt_tid := null;
+    else
+      select sum_eks_mva into valgt from public.tilbud
+        where invitasjon_id = new.anbefalt_invitasjon and anbud_id = new.id;
+      if valgt is null then
+        raise exception 'Anbefal et tilbud som er levert på dette anbudet.';
+      end if;
+      select min(sum_eks_mva) into laveste from public.tilbud where anbud_id = new.id;
+      if valgt > laveste and coalesce(btrim(new.anbefalt_begrunnelse), '') = '' then
+        raise exception 'Du anbefaler ikke laveste tilbud. Skriv en begrunnelse.';
+      end if;
+      new.anbefalt_av := auth.uid(); new.anbefalt_tid := now();
+    end if;
   end if;
 
   if old.status <> 'utkast' and
@@ -241,11 +348,22 @@ begin
     new.utsendt := now();
   end if;
 
+  if old.status <> 'tildelt' and (new.tildelt_invitasjon, new.tildelt_begrunnelse) is distinct from (old.tildelt_invitasjon, old.tildelt_begrunnelse)
+     and new.status <> 'tildelt' then
+    raise exception 'Tildeling skjer bare sammen med status «tildelt».';
+  end if;
+  if old.status = 'tildelt' and (new.tildelt_invitasjon, new.tildelt_begrunnelse) is distinct from (old.tildelt_invitasjon, old.tildelt_begrunnelse) then
+    raise exception 'Saken er avsluttet og kan ikke åpnes igjen.';
+  end if;
+
   if old.status in ('tildelt','avlyst') and new.status is distinct from old.status then
     raise exception 'Saken er avsluttet og kan ikke åpnes igjen.';
   end if;
 
   if new.status = 'tildelt' and old.status <> 'tildelt' then
+    if not public.er_admin() then
+      raise exception 'Bare Storebrand (admin) kan tildele oppdraget. Send en anbefaling i stedet.';
+    end if;
     if old.status <> 'utsendt' then
       raise exception 'Bare utsendte anbud kan tildeles.';
     end if;
@@ -275,7 +393,7 @@ returns jsonb
 language plpgsql security invoker as $$
 declare raa text; kode text; ny_id uuid;
 begin
-  if not public.er_admin() then
+  if not public.er_innlogget() then
     raise exception 'Logg inn med tofaktor først.';
   end if;
   if coalesce(btrim(p_leverandor), '') = '' then
@@ -405,15 +523,14 @@ create trigger sporsmal_vakt before insert or update or delete on public.sporsma
 
 alter table public.sporsmal enable row level security;
 create policy sporsmal_les on public.sporsmal for select to authenticated
-  using (public.er_admin() and eier = auth.uid());
+  using (public.kan_se_anbud(anbud_id));
 create policy sporsmal_endre on public.sporsmal for update to authenticated
-  using (public.er_admin() and eier = auth.uid()) with check (public.er_admin() and eier = auth.uid());
+  using (public.kan_se_anbud(anbud_id)) with check (public.kan_se_anbud(anbud_id));
 create policy sporsmal_slett on public.sporsmal for delete to authenticated
-  using (public.er_admin() and eier = auth.uid());
+  using (public.kan_se_anbud(anbud_id));
 -- Saksbehandler kan bare legge inn avklaringer selv. Spørsmål kommer fra leverandørene.
 create policy sporsmal_avklaring on public.sporsmal for insert to authenticated
-  with check (public.er_admin() and eier = auth.uid() and invitasjon_id is null
-              and exists (select 1 from public.anbud a where a.id = anbud_id and a.eier = auth.uid()));
+  with check (public.kan_se_anbud(anbud_id) and invitasjon_id is null);
 revoke all on public.sporsmal from anon;
 
 create function public.leverandor_sporsmal(p_kode text, p_tekst text)
@@ -613,6 +730,7 @@ select
                                                             as besparelse_mot_snitt
 from public.anbud a
 left join public.tilbud t on t.anbud_id = a.id
+where public.er_admin()          -- bare Storebrand ser besparelser
 group by a.id;
 
 revoke all on public.aarsoversikt from anon;

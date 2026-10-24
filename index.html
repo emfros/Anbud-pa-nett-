@@ -202,7 +202,7 @@ details.vis-anbud > summary::after { content: "Vis"; margin-left: auto; font-siz
 details.vis-anbud[open] > summary::after { content: "Skjul" }
 details.vis-anbud:not([open]) { gap: 0 }
 details.vis-anbud .tittel { font-size: 18px }
-tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
+tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-variant-numeric: normal }
 
 /* leverandørskjema */
 .del-h { margin-top: 12px }
@@ -256,7 +256,20 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
 .hero > .panel:first-child .box.info { background: rgba(255,255,255,.1); color: var(--n0) }
 .hero > .panel:first-child .box.info button.link { color: var(--rosa-400) }
 .hero > .panel:first-child .box.err { background: var(--red-50) }
-.hero > .panel:last-child { background: var(--red-50); border-color: var(--red-100); align-content: start }
+.hero > .panel:last-child:not(:first-child) { background: var(--red-50); border-color: var(--red-100); align-content: start }
+.hero.en { grid-template-columns: minmax(0, 1fr); max-width: 640px; width: 100%; margin: 0 auto }
+.demo-fot { text-align: center }
+.innlogging { max-width: 460px; width: 100%; margin: 0 auto }
+.demo-bruker { height: auto; padding: 14px 18px; border-radius: 14px; justify-content: space-between; text-align: left; white-space: normal; color: var(--n800); gap: 12px }
+.demo-bruker span { font-size: 13px; font-weight: 400; color: var(--n500) }
+.bruker { font-size: 13px; color: var(--n600); margin-left: auto }
+.bruker + nav { margin-left: 0 }
+table.brukere input, table.brukere select { height: 38px; border-radius: 10px; min-width: 130px }
+table.brukere td { vertical-align: middle }
+table.brukere td:first-child { display: grid; gap: 4px; min-width: 200px }
+table.brukere tr.venter td { background: var(--warn-50) }
+.roller { display: grid; gap: 6px; font-size: 14px; color: var(--n600) }
+.beslutning { display: grid; gap: 12px }
 
 .confirm { border: 1px solid var(--warn-line); background: var(--warn-50); border-radius: 16px; padding: 16px 18px; display: grid; gap: 10px; color: var(--warn) }
 .confirm strong { color: var(--n900) }
@@ -284,6 +297,8 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50) }
   .item .r { text-align: left }
   .logo img { height: 18px }
   .logo { gap: 10px } .logo span { padding-left: 10px; font-size: 14px }
+  .bar nav button { padding: 0 9px; font-size: 13px }
+  .bruker { margin-left: 0; width: 100%; order: 2 }
 }
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: up .24s cubic-bezier(.22,.61,.36,1) } @keyframes up { from { transform: translate(-50%, 8px); opacity: 0 } }
@@ -367,11 +382,15 @@ const dagFra = iso => iso ? tilLokal(iso).slice(0, 10) : '';
 const leggTilDager = (dag, n) => { const d = new Date(dag + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const datoDag = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
 const epostOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trim(v));
+const ROLLER = { admin: 'Admin', takstmann: 'Takstmann', venter: 'Venter på tilgang', sperret: 'Sperret' };
+const meg = () => S.sesjon?.profil || null;
+const erAdmin = () => meg()?.rolle === 'admin';
+const harTilgang = () => ['admin', 'takstmann'].includes(meg()?.rolle);
 const uker = v => isNum(v) ? nf.format(v) + (v === 1 ? ' uke' : ' uker') : '–';
-const tom = () => ({ skadenr: '', adresse: '', skadetype: SKADETYPER[0], tittel: '', beskrivelse: '', saerlige_forhold: '',
-  takst_navn: '', takst_firma: '', takst_epost: '', takst_tlf: '', befaring: '', oppmote: '', frist_sporsmal: '',
+const tom = () => { const p = meg()?.rolle === 'takstmann' ? meg() : null; return { skadenr: '', adresse: '', skadetype: SKADETYPER[0], tittel: '', beskrivelse: '', saerlige_forhold: '',
+  takst_navn: p?.navn || '', takst_firma: p?.firma || '', takst_epost: p?.epost || '', takst_tlf: p?.telefon || '', befaring: '', oppmote: '', frist_sporsmal: '',
   frist: omEnUke(), vedstaelse: leggTilDager(dagFra(omEnUke()), 60), onsket_ferdig: '', tildelingsregel: STD_TILDELING,
-  bygg: [{ id: nyId('b'), navn: 'Bolighus', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }], kalkyle: {}, status: 'utkast' });
+  bygg: [{ id: nyId('b'), navn: 'Bolighus', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }], kalkyle: {}, status: 'utkast' }; };
 
 /* =====================================================================
    Supabase-versjon av datalaget
@@ -384,7 +403,9 @@ function supabaseApi(sb) {
       const { data } = await sb.auth.getSession();
       if (!data.session) return null;
       const aal = ut(await sb.auth.mfa.getAuthenticatorAssuranceLevel());
-      return { epost: data.session.user.email, aal: aal.currentLevel };
+      let profil = null;
+      if (aal.currentLevel === 'aal2') { const r = await sb.from('profil').select('*').eq('id', data.session.user.id).maybeSingle(); profil = r.data; }
+      return { epost: data.session.user.email, aal: aal.currentLevel, profil };
     },
     async loggInn(epost, passord) { ut(await sb.auth.signInWithPassword({ email: epost, password: passord })); },
     async loggUt() { await sb.auth.signOut(); },
@@ -400,12 +421,13 @@ function supabaseApi(sb) {
     },
     async mfaBekreft(faktorId, kode) { ut(await sb.auth.mfa.challengeAndVerify({ factorId: faktorId, code: kode })); },
     async listAnbud() {
-      const a = ut(await sb.from('anbud').select('id,skadenr,adresse,skadetype,frist,status,kalkyle_sum,opprettet').order('opprettet', { ascending: false }));
+      const a = ut(await sb.from('anbud').select('id,skadenr,adresse,skadetype,frist,status,kalkyle_sum,opprettet,eier,anbefalt_invitasjon').order('opprettet', { ascending: false }));
+      const folk = ut(await sb.from('profil').select('id,navn,epost'));
       const inv = ut(await sb.from('invitasjon').select('anbud_id'));
       const t = ut(await sb.from('tilbud').select('anbud_id'));
       const sp = ut(await sb.from('sporsmal').select('anbud_id').is('publisert', null));
       return a.map(x => ({ ...x, antallInv: inv.filter(i => i.anbud_id === x.id).length, antallTilbud: t.filter(i => i.anbud_id === x.id).length,
-        ubesvarte: sp.filter(i => i.anbud_id === x.id).length }));
+        ubesvarte: sp.filter(i => i.anbud_id === x.id).length, laget_av: (p => p ? p.navn || p.epost : '')(folk.find(p => p.id === x.eier)) }));
     },
     async hentAnbud(id) {
       const anbud = ut(await sb.from('anbud').select('*').eq('id', id).single());
@@ -425,6 +447,9 @@ function supabaseApi(sb) {
     },
     async oppdaterFrister(id, felt) { ut(await sb.from('anbud').update(felt).eq('id', id)); },
     async settStatus(id, status, ekstra = {}) { ut(await sb.from('anbud').update({ status, ...ekstra }).eq('id', id)); },
+    async anbefal(id, inv, begrunnelse) { ut(await sb.from('anbud').update({ anbefalt_invitasjon: inv, anbefalt_begrunnelse: begrunnelse }).eq('id', id)); },
+    async listBrukere() { return ut(await sb.from('profil').select('*').order('opprettet')); },
+    async oppdaterBruker(id, felt) { ut(await sb.from('profil').update(felt).eq('id', id)); },
     async slettAnbud(id) { ut(await sb.from('anbud').delete().eq('id', id)); },
     async lagInvitasjon(anbudId, navn, epost) { return ut(await sb.rpc('lag_invitasjon', { p_anbud: anbudId, p_leverandor: navn, p_epost: epost || null })); },
     async slettInvitasjon(id) { ut(await sb.from('invitasjon').delete().eq('id', id)); },
@@ -474,20 +499,29 @@ function demoApi() {
       { id: 'c1', fag: 'Riving/sanering', beskrivelse: 'Fjerning av sotskadet gips', mengde: '22', enhet: 'm²' },
       { id: 'c2', fag: 'Maler', beskrivelse: 'Sotvask og isolerende maling tak', mengde: '31', enhet: 'm²' } ] }];
 
+  const brukere = [
+    { id: 'u-emil', epost: 'emil@storebrand.no', navn: 'Emil (demo)', firma: 'Storebrand', telefon: '', rolle: 'admin', type: null, opprettet: dager(-60) },
+    { id: 'u-kari', epost: 'kari@haugentakst.no', navn: 'Kari Haugen', firma: 'Haugen Takst AS', telefon: '922 33 444', rolle: 'takstmann', type: 'ekstern', opprettet: dager(-50) },
+    { id: 'u-jonas', epost: 'jonas.berg@storebrand.no', navn: 'Jonas Berg', firma: 'Storebrand', telefon: '901 22 333', rolle: 'takstmann', type: 'intern', opprettet: dager(-40) },
+    { id: 'u-ny', epost: 'ny.takstmann@takstfirma.no', navn: '', firma: '', telefon: '', rolle: 'venter', type: null, opprettet: dager(-1) }];
+  let jeg = null;
+  const synlig = a => jeg && (jeg.rolle === 'admin' || (jeg.rolle === 'takstmann' && a.eier === jeg.id));
+  const hent = id => { const a = db.anbud.find(x => x.id === id); if (!a || !synlig(a)) throw new Error('Fant ikke anbudet.'); return a; };
   const takst = { takst_navn: 'Kari Haugen', takst_firma: 'Haugen Takst AS', takst_epost: 'kari@haugentakst.no', takst_tlf: '922 33 444' };
-  const A = { id: 'demo-a', skadenr: 'SB-2026-04417', adresse: 'Lindeveien 14, 0681 Oslo', skadetype: 'Vannskade', ...takst,
+  const jonas = { takst_navn: 'Jonas Berg', takst_firma: 'Storebrand', takst_epost: 'jonas.berg@storebrand.no', takst_tlf: '901 22 333' };
+  const A = { id: 'demo-a', eier: 'u-jonas', skadenr: 'SB-2026-04417', adresse: 'Lindeveien 14, 0681 Oslo', skadetype: 'Vannskade', ...jonas,
     tittel: 'Tilbakeføring av bad og himling i kjeller etter vannskade',
     beskrivelse: 'Lekkasje fra sluk på bad i 2. etasje. Fukt i bjelkelag og himling i kjeller.\nBadet rives til bærende konstruksjon og bygges opp igjen med ny membran og fliser.\nHimling i kjeller skiftes og males.',
     saerlige_forhold: 'Uttørking av bjelkelag er bestilt separat og skal være ferdig før oppstart.', befaring: dager(-30), oppmote: '', frist_sporsmal: dagFra(dager(-25)),
     frist: dager(-20), vedstaelse: dagFra(dager(40)), onsket_ferdig: 'Innen 6 uker etter oppstart', tildelingsregel: STD_TILDELING, status: 'tildelt',
     bygg: byggA, kalkyle: kalkA, kalkyle_sum: kalkSum(byggA, kalkA), opprettet: dager(-34), utsendt: dager(-33) };
-  const B = { id: 'demo-b', skadenr: 'SB-2026-05102', adresse: 'Furubakken 3, 1352 Kolsås', skadetype: 'Stormskade', ...takst,
+  const B = { id: 'demo-b', eier: 'u-kari', skadenr: 'SB-2026-05102', adresse: 'Furubakken 3, 1352 Kolsås', skadetype: 'Stormskade', ...takst,
     tittel: 'Utskifting av kledning og takrenne etter stormskade',
     beskrivelse: 'Vindskade på kledning mot sørvest. Takrenne og vindskie på garasje revet løs.\nKledning skiftes på hele sørvestveggen og males to strøk.\nNy vindskie og takrenne på garasjen.',
     saerlige_forhold: 'Huseier har hund. Gi beskjed dagen før dere kommer.', befaring: dager(-2), oppmote: 'Ved garasjen', frist_sporsmal: dagFra(dager(1)),
     frist: dager(3), vedstaelse: dagFra(dager(63)), onsket_ferdig: 'Før vinteren', tildelingsregel: STD_TILDELING, status: 'utsendt',
     bygg: byggB, kalkyle: kalkB, kalkyle_sum: kalkSum(byggB, kalkB), opprettet: dager(-5), utsendt: dager(-4) };
-  const C = { id: 'demo-c', skadenr: 'SB-2026-05230', adresse: 'Tordenskiolds gate 8, 0160 Oslo', skadetype: 'Brannskade', ...takst,
+  const C = { id: 'demo-c', eier: 'u-kari', skadenr: 'SB-2026-05230', adresse: 'Tordenskiolds gate 8, 0160 Oslo', skadetype: 'Brannskade', ...takst,
     tittel: 'Sotvask og maling etter kjøkkenbrann', beskrivelse: 'Kjøkkenbrann, sot i stue og gang.', saerlige_forhold: '', befaring: '', oppmote: '', frist_sporsmal: '',
     frist: dager(10), vedstaelse: dagFra(dager(70)), onsket_ferdig: '', tildelingsregel: STD_TILDELING, status: 'utkast',
     bygg: byggC, kalkyle: { c1: 480 }, kalkyle_sum: null, opprettet: dager(-1) };
@@ -553,12 +587,25 @@ function demoApi() {
   return {
     demo: true,
     demoKoder: { 'Kolsås (har levert)': 'E7F8-A9B0-C1D2-5519', 'Asker (ikke levert)': 'F3A4-B5C6-D7E8-6627' },
-    async sesjon() { return this._inne ? { epost: 'emil@demo.no', aal: 'aal2' } : null; },
-    async loggInn() { await vent(); this._inne = true; },
-    async loggUt() { this._inne = false; },
-    async listAnbud() { await vent(); return kopi(db.anbud.map(a => ({ ...a, antallInv: db.inv.filter(i => i.anbud_id === a.id).length, antallTilbud: db.tilbud.filter(t => t.anbud_id === a.id).length,
+    demoBrukere: brukere,
+    async sesjon() { return jeg ? { epost: jeg.epost, aal: 'aal2', profil: kopi(jeg) } : null; },
+    async loggInn(id) { await vent(); jeg = brukere.find(b => b.id === id || b.epost === id) || null; if (!jeg) throw new Error('Feil e-post eller passord.'); },
+    async loggUt() { jeg = null; },
+    async listBrukere() { await vent(); if (jeg?.rolle !== 'admin') return []; return kopi(brukere); },
+    async oppdaterBruker(id, felt) { await vent(); if (jeg?.rolle !== 'admin') throw new Error('Bare admin kan endre brukere.');
+      const b = brukere.find(x => x.id === id);
+      if (b.rolle === 'admin' && felt.rolle !== 'admin' && brukere.filter(x => x.rolle === 'admin').length <= 1) throw new Error('Det må alltid være minst én admin.');
+      Object.assign(b, felt); if (b.rolle !== 'takstmann') b.type = null; if (b.id === jeg.id) jeg = b; },
+    async anbefal(id, inv, begrunnelse) { await vent(); const a = hent(id);
+      if (a.status !== 'utsendt') throw new Error('Anbudet er avsluttet. Anbefalingen kan ikke endres.');
+      if (!inv) { Object.assign(a, { anbefalt_invitasjon: null, anbefalt_begrunnelse: null, anbefalt_av: null, anbefalt_tid: null }); return; }
+      const t = db.tilbud.filter(x => x.anbud_id === a.id); const v = t.find(x => x.invitasjon_id === inv);
+      if (!v) throw new Error('Anbefal et tilbud som er levert på dette anbudet.');
+      if (v.sum_eks_mva > Math.min(...t.map(x => x.sum_eks_mva)) && !trim(begrunnelse)) throw new Error('Du anbefaler ikke laveste tilbud. Skriv en begrunnelse.');
+      Object.assign(a, { anbefalt_invitasjon: inv, anbefalt_begrunnelse: trim(begrunnelse) || null, anbefalt_av: jeg.id, anbefalt_tid: new Date().toISOString() }); },
+    async listAnbud() { await vent(); return kopi(db.anbud.filter(synlig).map(a => ({ ...a, laget_av: (p => p ? p.navn || p.epost : '')(brukere.find(b => b.id === a.eier)), antallInv: db.inv.filter(i => i.anbud_id === a.id).length, antallTilbud: db.tilbud.filter(t => t.anbud_id === a.id).length,
       ubesvarte: db.sporsmal.filter(s => s.anbud_id === a.id && !s.publisert).length }))).sort((a, b) => b.opprettet.localeCompare(a.opprettet)); },
-    async hentAnbud(id) { await vent(); const a = db.anbud.find(x => x.id === id); if (!a) throw new Error('Fant ikke anbudet.');
+    async hentAnbud(id) { await vent(); const a = hent(id);
       return kopi({ anbud: a, invitasjoner: db.inv.filter(i => i.anbud_id === id).map(({ kode, ...r }) => r), tilbud: db.tilbud.filter(t => t.anbud_id === id),
         sporsmal: db.sporsmal.filter(s => s.anbud_id === id).sort((x, y) => x.opprettet.localeCompare(y.opprettet)) }); },
     async publiserSvar(id, tekst, svar) { await vent(); const s = db.sporsmal.find(x => x.id === id); const a = db.anbud.find(x => x.id === s.anbud_id);
@@ -580,20 +627,22 @@ function demoApi() {
       return { ok: true, opprettet: n }; },
     async lagreAnbud(x) { await vent(); sjekkDatoer(x);
       const felt = Object.fromEntries(ANBUD_FELT.map(k => [k, kopi(x[k] ?? null)]));
-      if (x.id) { const a = db.anbud.find(y => y.id === x.id); if (a.status !== 'utkast') throw new Error('Poster og kalkyle er låst etter at anbudet er sendt ut.'); Object.assign(a, felt); return kopi(a); }
-      const a = { ...felt, id: nyId('a'), status: 'utkast', opprettet: new Date().toISOString() }; db.anbud.push(a); return kopi(a); },
+      if (x.id) { const a = hent(x.id); if (a.status !== 'utkast') throw new Error('Poster og kalkyle er låst etter at anbudet er sendt ut.'); Object.assign(a, felt); return kopi(a); }
+      const a = { ...felt, id: nyId('a'), eier: jeg.id, status: 'utkast', opprettet: new Date().toISOString() }; db.anbud.push(a); return kopi(a); },
     async oppdaterFrister(id, felt) { await vent(); const a = db.anbud.find(x => x.id === id);
       if (Object.keys(felt).some(k => !ENDRES_ETTER_UTSENDING.includes(k))) throw new Error('Beskrivelse og vilkår er låst etter at anbudet er sendt ut.');
       sjekkDatoer({ ...a, ...felt }); Object.assign(a, felt); },
-    async settStatus(id, status, ekstra = {}) { await vent(); const a = db.anbud.find(x => x.id === id); sjekkStatus(a, status, ekstra); Object.assign(a, { status, ...ekstra }); },
+    async settStatus(id, status, ekstra = {}) { await vent(); const a = hent(id);
+      if (status === 'tildelt' && jeg.rolle !== 'admin') throw new Error('Bare Storebrand (admin) kan tildele oppdraget. Send en anbefaling i stedet.');
+      sjekkStatus(a, status, ekstra); Object.assign(a, { status, ...ekstra }); },
     async slettAnbud(id) { db.anbud = db.anbud.filter(x => x.id !== id); },
-    async lagInvitasjon(anbudId, navn, epost) { await vent(); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
+    async lagInvitasjon(anbudId, navn, epost) { await vent(); hent(anbudId); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
       const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sendt: null, sist_aapnet: null, opprettet: new Date().toISOString() };
       db.inv.push(i); return { id: i.id, kode: k }; },
     async merkSendt(id) { const i = db.inv.find(x => x.id === id); if (i) i.sendt = new Date().toISOString(); },
     async slettInvitasjon(id) { db.inv = db.inv.filter(i => i.id !== id); db.tilbud = db.tilbud.filter(t => t.invitasjon_id !== id);
       db.sporsmal.forEach(s => { if (s.invitasjon_id === id) s.invitasjon_id = null; }); },
-    async aarsoversikt() { await vent();
+    async aarsoversikt() { await vent(); if (jeg?.rolle !== 'admin') return [];
       return db.anbud.map(a => { const t = db.tilbud.filter(x => x.anbud_id === a.id); const s = t.map(x => x.sum_eks_mva);
         const snitt = s.length ? s.reduce((p, c) => p + c, 0) / s.length : null; const tild = t.find(x => x.invitasjon_id === a.tildelt_invitasjon)?.sum_eks_mva ?? null;
         return { id: a.id, skadenr: a.skadenr, skadetype: a.skadetype, status: a.status, aar: new Date(a.utsendt || a.opprettet).getFullYear(), kalkyle_sum: a.kalkyle_sum,
@@ -636,7 +685,7 @@ function demoApi() {
    Tilstand og visninger
    ===================================================================== */
 let api;
-const S = { view: 'start', sesjon: null, liste: [], aktiv: null, utkast: null, feil: [], bekreft: null, nyKode: null, valgt: null, begrunnelse: '', qaUtkast: {}, avklaring: '',
+const S = { brukerUtkast: {}, view: 'start', sesjon: null, liste: [], aktiv: null, utkast: null, feil: [], bekreft: null, nyKode: null, valgt: null, begrunnelse: '', qaUtkast: {}, avklaring: '',
   lev: null, mfa: null, aar: null, laster: false };
 
 let toastTid;
@@ -649,26 +698,29 @@ async function jobb(fn) { try { S.feil = []; await fn(); } catch (e) { S.feil = 
 
 function render() {
   renderBar();
-  const v = { start: vStart, login: vLogin, mfa: vMfa, liste: vListe, rediger: vRediger, anbud: vAnbud, aar: vAar, lev: vLev, kvittering: vKvittering }[S.view] || vStart;
+  const v = { start: vStart, login: vLogin, mfa: vMfa, ingen: vIngenTilgang, liste: vListe, rediger: vRediger, anbud: vAnbud, aar: vAar, brukere: vBrukere, lev: vLev, kvittering: vKvittering }[S.view] || vStart;
   $('#app').innerHTML = v();
   window.scrollTo?.(0, S._scroll || 0); S._scroll = 0;
 }
 function renderBar() {
-  const admin = S.sesjon?.aal === 'aal2' && !['lev', 'kvittering', 'start'].includes(S.view);
+  const intern = harTilgang() && !['lev', 'kvittering', 'start'].includes(S.view);
+  const p = meg();
   $('#bar').innerHTML = `<div class="logo"><img src="${LOGO}" alt="Storebrand"><span>Anbudsportal</span></div>${api.demo ? '<span class="tag">Demo</span>' : ''}
-    <nav>${admin ? `<button class="ghost ${['liste', 'anbud', 'rediger'].includes(S.view) ? 'on' : ''}" data-act="liste">Anbud</button>
-      <button class="ghost ${S.view === 'aar' ? 'on' : ''}" data-act="aar">Årsoversikt</button>
+    ${intern ? `<span class="bruker">${esc(p.navn || p.epost)} · ${ROLLER[p.rolle]}${p.rolle === 'takstmann' && p.type ? ` (${p.type})` : ''}</span>` : ''}
+    <nav>${intern ? `<button class="ghost ${['liste', 'anbud', 'rediger'].includes(S.view) ? 'on' : ''}" data-act="liste">Anbud</button>
+      ${erAdmin() ? `<button class="ghost ${S.view === 'aar' ? 'on' : ''}" data-act="aar">Årsoversikt</button>
+      <button class="ghost ${S.view === 'brukere' ? 'on' : ''}" data-act="brukere">Brukere</button>` : ''}
       <button class="ghost" data-act="loggut">Logg ut</button>`
       : S.view === 'lev' || S.view === 'kvittering' ? `<button class="ghost" data-act="levut">Avslutt</button>` : ''}</nav>`;
 }
 const feilBoks = () => S.feil.length ? `<div class="box err" role="alert">${S.feil.length === 1 ? esc(S.feil[0]) : `<strong>Rett opp dette:</strong><ul>${S.feil.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`}</div>` : '';
 
-/* ---------- startside ---------- */
+/* ---------- forside for leverandører: bare koden ---------- */
 function vStart() {
-  return `<section class="hero">
+  return `<section class="hero en">
     <div class="panel">
       <div class="stack"><h1>Gi pris på et anbud</h1>
-      <p class="muted">Du har fått en kode på e-post. Skriv den inn her for å se oppdraget og levere tilbudet ditt.</p></div>
+      <p class="muted">Du har fått en kode på e-post fra Storebrand. Skriv den inn for å se oppdraget og levere tilbudet ditt.</p></div>
       ${feilBoks()}
       <form class="stack" data-form="kode">
         <label class="f">Koden din<input id="kode" class="codein" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" value="${esc(S._kodeFyll || '')}"></label>
@@ -676,25 +728,34 @@ function vStart() {
       </form>
       ${api.demo ? `<div class="box info small"><strong>Prøv som leverandør:</strong> ${Object.entries(api.demoKoder).map(([n, k]) => `<button class="link" data-act="fyllkode" data-kode="${k}">${esc(n)}</button>`).join(' · ')}</div>` : ''}
     </div>
-    <div class="panel">
-      <div class="stack"><h2>For saksbehandler</h2>
-      <p class="muted">Lag anbud, send koder til leverandører og sammenlign tilbudene.</p></div>
-      <button data-act="tilLogin" class="back">Logg inn</button>
-      ${api.demo ? `<p class="small muted">I demoen hopper du rett inn uten passord og tofaktor. Alt nullstilles når du laster siden på nytt.</p>` : ''}
-    </div>
-  </section>`;
+  </section>
+  ${api.demo ? `<p class="demo-fot small muted">Demo: Storebrand og takstmenn logger inn på en egen adresse. <button class="link" data-act="tilIntern">Gå til intern innlogging</button></p>` : ''}`;
 }
 
-/* ---------- innlogging ---------- */
+/* ---------- innlogging for Storebrand og takstmenn (#intern) ---------- */
 function vLogin() {
-  return `<div class="panel" style="max-width:440px">
-    <h1>Logg inn</h1>${feilBoks()}
+  if (api.demo) return `<div class="panel innlogging">
+    <div class="steg-h"><h1>Logg inn</h1><p class="sub">For Storebrand og takstmenn.</p></div>${feilBoks()}
+    <p>I demoen velger du hvem du vil logge inn som. Ekte innlogging har e-post, passord og tofaktor.</p>
+    <div class="stack">${api.demoBrukere.map(b => `<button class="demo-bruker" data-act="demoLogin" data-id="${b.id}"><strong>${esc(b.navn || b.epost)}</strong>
+      <span>${ROLLER[b.rolle]}${b.type ? ` (${b.type})` : ''}</span></button>`).join('')}</div>
+  </div>`;
+  return `<div class="panel innlogging">
+    <div class="steg-h"><h1>Logg inn</h1><p class="sub">For Storebrand og takstmenn.</p></div>${feilBoks()}
     <form class="stack" data-form="login">
       <label class="f">E-post<input id="epost" type="email" autocomplete="username" required></label>
       <label class="f">Passord<input id="passord" type="password" autocomplete="current-password" required></label>
       <button class="pri" type="submit">Logg inn</button>
     </form>
-    <button class="link back" data-act="start">Tilbake</button>
+    <p class="small muted">Leverandør? Bruk lenken i e-posten du fikk, eller skriv inn koden på <a href="${esc(location.pathname)}">forsiden</a>.</p>
+  </div>`;
+}
+function vIngenTilgang() {
+  const p = meg();
+  return `<div class="panel innlogging">
+    <h1>${p?.rolle === 'sperret' ? 'Tilgangen din er stengt' : 'Du har ikke fått tilgang ennå'}</h1>
+    <p>Du er logget inn som <strong>${esc(p?.epost || S.sesjon?.epost || '')}</strong>. ${p?.rolle === 'sperret' ? 'Kontakt Storebrand hvis du mener dette er feil.' : 'En admin i Storebrand må gi deg rolle før du kan bruke portalen.'}</p>
+    <button class="back" data-act="loggut">Logg ut</button>
   </div>`;
 }
 function vMfa() {
@@ -720,9 +781,9 @@ function vListe() {
       <span class="t"><span class="mono">${esc(a.skadenr)}</span><span class="chip ${a.status}">${a.status}</span></span>
       <span class="r num">${kr(a.kalkyle_sum)}</span>
       <span class="muted small">${esc(a.adresse)} · ${esc(a.skadetype)}</span>
-      <span class="r small muted">${a.ubesvarte ? `<span class="qa-varsel">${a.ubesvarte} spørsmål venter</span> · ` : ''}${a.status === 'utsendt' ? `${a.antallTilbud} av ${a.antallInv} tilbud · ${igjen(a.frist)}` : a.status === 'utkast' ? 'Ikke sendt ut' : `${a.antallTilbud} tilbud · frist ${datoKort(a.frist)}`}</span>
+      <span class="r small muted">${a.status === 'utsendt' && a.anbefalt_invitasjon ? `<span class="qa-varsel">${erAdmin() ? 'Venter på tildeling' : 'Anbefalt, venter på Storebrand'}</span> · ` : ''}${a.ubesvarte ? `<span class="qa-varsel">${a.ubesvarte} spørsmål venter</span> · ` : ''}${erAdmin() && a.laget_av ? `${esc(a.laget_av)} · ` : ''}${a.status === 'utsendt' ? `${a.antallTilbud} av ${a.antallInv} tilbud · ${igjen(a.frist)}` : a.status === 'utkast' ? 'Ikke sendt ut' : `${a.antallTilbud} tilbud · frist ${datoKort(a.frist)}`}</span>
     </button>`).join('');
-  return `<div class="row between"><h1>Anbud</h1><button class="pri" data-act="nytt">+ Nytt anbud</button></div>
+  return `<div class="row between"><div class="steg-h"><h1>Anbud</h1><p class="sub">${erAdmin() ? 'Alle anbud, også fra takstmenn.' : 'Anbudene du har laget.'}</p></div><button class="pri" data-act="nytt">+ Nytt anbud</button></div>
     ${feilBoks()}
     <div class="panel tight"><div class="list">${rader || '<p class="muted" style="padding:20px">Ingen anbud ennå. Trykk «Nytt anbud» for å lage det første.</p>'}</div></div>`;
 }
@@ -961,6 +1022,52 @@ function vInviter(a) {
   </section>`;
 }
 
+/* ---------- anbefaling (takstmann) og tildeling (admin) ---------- */
+const valgtNaa = () => S.valgt ?? S.aktiv?.anbud?.anbefalt_invitasjon ?? null;
+function vBeslutning(a, sortert, valgtT, trengerBegr) {
+  const anbefalt = sortert.find(x => x.invitasjon_id === a.anbefalt_invitasjon);
+  const begr = (tekst) => trengerBegr ? `<label class="f">${tekst}<textarea id="begr" placeholder="For eksempel: kortere byggetid, færre forbehold, bedre referanser">${esc(S.begrunnelse)}</textarea></label>` : '';
+  if (erAdmin()) return `<div class="beslutning">
+    ${anbefalt ? `<div class="box info">Takstmannen anbefaler <strong>${esc(anbefalt.firmanavn)}</strong> (${kr(anbefalt.sum_eks_mva)}).${trim(a.anbefalt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.anbefalt_begrunnelse)}</span>` : ''}</div>`
+      : '<p class="small muted">Takstmannen har ikke sendt anbefaling ennå. Du kan likevel tildele.</p>'}
+    ${begr('Begrunnelse – du har ikke valgt laveste tilbud')}
+    ${S.bekreft === 'tildel' ? `<div class="confirm"><strong>Tildele oppdraget til ${esc(valgtT?.firmanavn)}?</strong><p>Saken lukkes. Ingen kan sende eller endre tilbud etterpå.</p>
+      <div class="row"><button class="pri" data-act="tildel">Ja, tildel</button><button data-act="avbryt">Avbryt</button></div></div>`
+    : `<div class="row"><button class="pri" data-act="spørTildel" ${valgtT ? '' : 'disabled'}>Tildel valgt tilbud</button>${!valgtT ? '<span class="small muted">Velg et tilbud over.</span>' : ''}</div>`}
+  </div>`;
+  return `<div class="beslutning">
+    ${anbefalt ? `<div class="box info">Du har anbefalt <strong>${esc(anbefalt.firmanavn)}</strong>. Storebrand tildeler oppdraget. Du kan endre anbefalingen frem til det er tildelt.</div>`
+      : '<p class="small muted">Velg tilbudet du anbefaler. Storebrand tar den endelige beslutningen.</p>'}
+    ${begr('Begrunnelse – du anbefaler ikke laveste tilbud')}
+    ${S.bekreft === 'anbefal' ? `<div class="confirm"><strong>Anbefale ${esc(valgtT?.firmanavn)}?</strong><p>Storebrand ser anbefalingen i portalen og tildeler oppdraget.</p>
+      <div class="row"><button class="pri" data-act="anbefal">Ja, send anbefaling</button><button data-act="avbryt">Avbryt</button></div></div>`
+    : `<div class="row"><button class="pri" data-act="spørAnbefal" ${valgtT ? '' : 'disabled'}>${anbefalt ? 'Oppdater anbefaling' : 'Send anbefaling til Storebrand'}</button>${!valgtT ? '<span class="small muted">Velg et tilbud over.</span>' : ''}</div>`}
+  </div>`;
+}
+
+/* ---------- brukere (bare admin) ---------- */
+function vBrukere() {
+  const rader = (S.brukere || []).map(b => { const u = S.brukerUtkast[b.id] || b;
+    return `<tr class="${b.rolle === 'venter' ? 'venter' : ''}"><td><input data-bu="${b.id}" data-bf="navn" value="${esc(u.navn)}" placeholder="Navn" aria-label="Navn"><span class="small muted">${esc(b.epost)}</span></td>
+      <td><input data-bu="${b.id}" data-bf="firma" value="${esc(u.firma)}" placeholder="Firma" aria-label="Firma"></td>
+      <td><select data-bu="${b.id}" data-bf="rolle" aria-label="Rolle">${Object.entries(ROLLER).map(([k, v]) => `<option value="${k}" ${u.rolle === k ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td>${u.rolle === 'takstmann' ? `<select data-bu="${b.id}" data-bf="type" aria-label="Intern eller ekstern"><option value="">Velg</option>
+        <option value="intern" ${u.type === 'intern' ? 'selected' : ''}>Intern</option><option value="ekstern" ${u.type === 'ekstern' ? 'selected' : ''}>Ekstern</option></select>` : '<span class="muted small">–</span>'}</td>
+      <td>${S.brukerUtkast[b.id] ? `<button class="pri small" data-act="lagreBruker" data-id="${b.id}">Lagre</button>` : ''}</td></tr>`; }).join('');
+  const venter = (S.brukere || []).filter(b => b.rolle === 'venter').length;
+  return `<div class="row between"><div class="steg-h"><h1>Brukere</h1><p class="sub">Gi rolle og tilgang. Bare admin ser denne siden.</p></div>${venter ? `<span class="chip utkast">${venter} venter på tilgang</span>` : ''}</div>
+    ${feilBoks()}
+    <section class="panel">
+      <div class="tw"><table class="brukere"><thead><tr><th>Navn og e-post</th><th>Firma</th><th>Rolle</th><th>Intern / ekstern</th><th></th></tr></thead><tbody>${rader}</tbody></table></div>
+      <div class="roller">
+        <div><strong>Admin</strong> – Storebrand. Ser alle anbud og årsoversikten, tildeler oppdrag og gir roller.</div>
+        <div><strong>Takstmann</strong> – lager anbud og ser bare sine egne. Anbefaler leverandør, men tildeler ikke.</div>
+        <div><strong>Venter på tilgang</strong> – har konto, men ser ingenting. <strong>Sperret</strong> – tilgangen er stengt.</div>
+      </div>
+    </section>
+    <div class="box info small"><strong>Ny bruker?</strong> ${api.demo ? 'I den ekte portalen legger du til brukere i Supabase.' : 'Legg til brukeren i Supabase: Authentication → Users → Add user.'} Brukeren dukker opp her med «Venter på tilgang». Gi rolle, og trykk Lagre.</div>`;
+}
+
 /* ---------- anbud (utsendt / avsluttet) ---------- */
 function vAnbud() {
   const { anbud: a, invitasjoner: inv, tilbud: t } = S.aktiv;
@@ -968,7 +1075,7 @@ function vAnbud() {
   const laveste = sortert[0]?.sum_eks_mva;
   const avsluttet = ['tildelt', 'avlyst'].includes(a.status);
   const tildelt = sortert.find(x => x.invitasjon_id === a.tildelt_invitasjon);
-  const valgt = S.valgt ?? null;
+  const valgt = valgtNaa();
   const valgtT = sortert.find(x => x.invitasjon_id === valgt);
   const trengerBegr = valgtT && valgtT.sum_eks_mva > laveste;
   const avvik = s => a.kalkyle_sum ? ((s - a.kalkyle_sum) / a.kalkyle_sum * 100) : null;
@@ -977,7 +1084,7 @@ function vAnbud() {
   const kort = sortert.map((x, i) => { const navn = inv.find(v => v.id === x.invitasjon_id)?.leverandor || x.firmanavn;
     return `<label class="offer ${valgt === x.invitasjon_id || (avsluttet && x.invitasjon_id === a.tildelt_invitasjon) ? 'sel' : ''}">
       ${avsluttet ? `<span class="pnr">${i + 1}.</span>` : `<input type="radio" name="valg" data-act="velg" data-id="${x.invitasjon_id}" ${valgt === x.invitasjon_id ? 'checked' : ''}>`}
-      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${forbeholdListe(a, x).length ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''}</span>
+      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${forbeholdListe(a, x).length ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''} ${!avsluttet && x.invitasjon_id === a.anbefalt_invitasjon ? '<span class="badge ny">Anbefalt</span>' : ''}</span>
       <span class="s">${kr(x.sum_eks_mva)}<br><span class="small">${pct(avvik(x.sum_eks_mva))}</span></span>
       <span class="meta gj"><span>Byggetid <b>${uker(tall(x.byggetid_uker))}</b></span><span>Oppstart <b>${datoDag(x.oppstart)}</b></span><span>Timepris <b>${kr(tall(x.timepris))}</b></span></span>
       <span class="meta"><span>Org.nr <span class="mono">${esc(x.orgnr)}</span></span><span>${esc(x.kontakt)}</span><span>Levert ${dato(x.levert)}${x.antall_innsendinger > 1 ? ` (endret ${x.antall_innsendinger - 1} g.)` : ''}</span>${navn !== x.firmanavn ? `<span>Invitert som ${esc(navn)}</span>` : ''}</span>
@@ -1016,7 +1123,7 @@ function vAnbud() {
     <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
       <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
     ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
-    ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva. Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
+    ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva.${erAdmin() ? ` Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.` : ''}${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
     ${!avsluttet ? vInviter(a) : ''}
 
@@ -1026,10 +1133,7 @@ function vAnbud() {
 
     <section class="panel"><h2>Tilbud</h2>
       ${t.length ? `<div class="cards">${kort}</div>
-        ${!avsluttet ? `${trengerBegr ? `<label class="f">Begrunnelse – du har ikke valgt laveste tilbud<textarea id="begr" placeholder="For eksempel: kortere oppstart, færre forbehold, bedre referanser">${esc(S.begrunnelse)}</textarea></label>` : ''}
-          ${S.bekreft === 'tildel' ? `<div class="confirm"><strong>Tildele oppdraget til ${esc(valgtT?.firmanavn)}?</strong><p>Saken lukkes. Ingen kan sende eller endre tilbud etterpå.</p>
-            <div class="row"><button class="pri" data-act="tildel">Ja, tildel</button><button data-act="avbryt">Avbryt</button></div></div>`
-          : `<div class="row"><button class="pri" data-act="spørTildel" ${valgt ? '' : 'disabled'}>Tildel valgt tilbud</button>${!valgt ? '<span class="small muted">Velg et tilbud over.</span>' : ''}</div>`}` : ''}
+        ${!avsluttet ? vBeslutning(a, sortert, valgtT, trengerBegr) : ''}
         <h3 style="margin-top:8px">Pris per post</h3>${tabell}`
       : '<p class="muted">Ingen tilbud levert ennå.</p>'}
     </section>
@@ -1169,8 +1273,10 @@ async function tilAdmin() {
   S.sesjon = await api.sesjon();
   if (!S.sesjon) { S.view = 'login'; return render(); }
   if (S.sesjon.aal !== 'aal2') return startMfa();
+  if (!harTilgang()) { S.view = 'ingen'; return render(); }
   await visListe();
 }
+async function visBrukere(behold) { S.brukere = await api.listBrukere(); if (!behold) S.brukerUtkast = {}; S.view = 'brukere'; render(); }
 async function startMfa() {
   const st = await api.mfaStatus();
   S.mfa = st.faktorId ? { faktorId: st.faktorId } : await api.mfaStart(st.uferdige);
@@ -1179,7 +1285,7 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null;
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null;
   if (d.anbud.status === 'utkast') { S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
@@ -1201,8 +1307,17 @@ document.addEventListener('click', e => {
   const act = el.dataset.act, id = el.dataset.id;
   const h = {
     start: () => { S.view = 'start'; S.feil = []; render(); },
-    tilLogin: () => jobb(async () => { if (api.demo) { await api.loggInn(); } await tilAdmin(); }),
-    loggut: () => jobb(async () => { await api.loggUt(); S.sesjon = null; S.view = 'start'; render(); }),
+    tilIntern: () => { if (location.hash === '#intern') jobb(tilAdmin); else location.hash = 'intern'; },
+    demoLogin: () => jobb(async () => { await api.loggInn(id); await tilAdmin(); }),
+    loggut: () => jobb(async () => { await api.loggUt(); S.sesjon = null; S.view = 'login'; render(); }),
+    brukere: () => jobb(visBrukere),
+    lagreBruker: () => jobb(async () => { const u = S.brukerUtkast[id];
+      if (u.rolle === 'takstmann' && !u.type) throw new Error('Velg om takstmannen er intern eller ekstern.');
+      await api.oppdaterBruker(id, { navn: trim(u.navn), firma: trim(u.firma), rolle: u.rolle, type: u.rolle === 'takstmann' ? u.type : null });
+      delete S.brukerUtkast[id]; S.sesjon = await api.sesjon(); toast('Brukeren er lagret');
+      if (!erAdmin()) return tilAdmin(); await visBrukere(true); }),
+    spørAnbefal: () => { S.bekreft = 'anbefal'; keep(); },
+    anbefal: () => jobb(async () => { await api.anbefal(S.aktiv.anbud.id, valgtNaa(), trim(S.begrunnelse) || null); toast('Anbefalingen er sendt til Storebrand'); await aapneAnbud(S.aktiv.anbud.id); }),
     liste: () => jobb(visListe),
     aar: () => jobb(async () => { S.aar = await api.aarsoversikt(); S.view = 'aar'; render(); }),
     aapne: () => jobb(() => aapneAnbud(id)),
@@ -1219,7 +1334,7 @@ document.addEventListener('click', e => {
     avbryt: () => { S.bekreft = null; keep(); },
     velg: () => { S.valgt = id; S.bekreft = null; keep(); },
     spørTildel: () => { S.bekreft = 'tildel'; keep(); },
-    tildel: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'tildelt', { tildelt_invitasjon: S.valgt, tildelt_begrunnelse: trim(S.begrunnelse) || null }); toast('Oppdraget er tildelt'); await aapneAnbud(S.aktiv.anbud.id); }),
+    tildel: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'tildelt', { tildelt_invitasjon: valgtNaa(), tildelt_begrunnelse: trim(S.begrunnelse) || null }); toast('Oppdraget er tildelt'); await aapneAnbud(S.aktiv.anbud.id); }),
     spørAvlys: () => { S.bekreft = 'avlys'; keep(); },
     avlys: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'avlyst'); toast('Anbudet er avlyst'); await aapneAnbud(S.aktiv.anbud.id); }),
     slettInv: () => jobb(async () => { await api.slettInvitasjon(id); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Invitasjonen er trukket tilbake. Koden virker ikke lenger.'); keep(); }),
@@ -1258,7 +1373,7 @@ document.addEventListener('click', e => {
     avklaring: () => jobb(async () => { await api.lagAvklaring(S.aktiv.anbud.id, trim(S.avklaring)); S.avklaring = ''; S.bekreft = null;
       S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Avklaringen er publisert til alle leverandørene'); keep(); }),
     levEndre: () => jobb(() => levAapne(S.lev.kode)),
-    levut: () => { S.lev = null; S.view = 'start'; S.feil = []; S._kodeFyll = ''; render(); },
+    levut: () => { S.lev = null; S.feil = []; S._kodeFyll = ''; if (location.hash === '#intern' && harTilgang()) return jobb(visListe); S.view = 'start'; render(); },
     skrivUt: () => window.print()
   }[act];
   if (h) { if (el.tagName !== 'INPUT') e.preventDefault(); h(); }
@@ -1318,6 +1433,8 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'begr') { S.begrunnelse = t.value; return; }
   if (t.id === 'avklaring') { S.avklaring = t.value; return; }
+  if (t.dataset.bu) { const b = S.brukere.find(x => x.id === t.dataset.bu); const u = S.brukerUtkast[b.id] ||= { ...b }; u[t.dataset.bf] = t.value;
+    if (t.tagName === 'SELECT') keep(); else if (!document.querySelector(`[data-act="lagreBruker"][data-id="${b.id}"]`)) { const p = t.selectionStart; keep(); const el = document.querySelector(`[data-bu="${b.id}"][data-bf="${t.dataset.bf}"]`); el?.focus(); el?.setSelectionRange?.(p, p); } return; }
   if (t.id === 'invEmne') { S.invUtkast.emne = t.value; return; }
   if (t.id === 'invTekst') { S.invUtkast.tekst = t.value; return; }
   if (t.dataset.qt || t.dataset.qs) { const id = t.dataset.qt || t.dataset.qs; const s = S.aktiv.sporsmal.find(x => x.id === id);
@@ -1363,9 +1480,15 @@ async function start() {
   const m = location.hash.match(/kode=([A-Za-z0-9-]+)/);
   if (m) { S._kodeFyll = m[1]; history.replaceState(null, '', location.pathname + location.search); }
 
+  // Forsiden er for leverandører. Storebrand og takstmenn bruker adressen med #intern.
+  const rute = async () => {
+    S.feil = [];
+    if (location.hash === '#intern') { try { await tilAdmin(); } catch (e) { S.feil = [e.message]; S.view = 'login'; render(); } }
+    else if (!['lev', 'kvittering'].includes(S.view)) { S.view = 'start'; render(); }
+  };
+  window.addEventListener('hashchange', rute);
   S.sesjon = await api.sesjon().catch(() => null);
-  if (S.sesjon && !api.demo && !m) { try { await tilAdmin(); return; } catch (e) { S.feil = [e.message]; } }
-  render();
+  await rute();
 }
 start().catch(e => { document.getElementById('app').innerHTML = `<div class="box err">${esc(e.message)}</div>`; });
 </script>

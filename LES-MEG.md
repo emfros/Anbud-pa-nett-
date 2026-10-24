@@ -19,11 +19,17 @@ Regn med 1–2 timer første gang. Alt er gratis bortsett fra domenet (ca. 100�
 3. Gi databasen et sterkt passord og lagre det i passordbehandleren din.
 4. Når prosjektet er klart: gå til **SQL Editor** → **New query**. Lim inn hele `oppsett.sql` og trykk **Run**. Du skal få «Success».
 
-## 2. Lag brukeren din, og steng for andre
+## 2. Lag brukeren din, gjør deg til admin, og steng for andre
 
 1. Gå til **Authentication** → **Sign In / Providers** (kan hete «Settings»). Slå **av** «Allow new users to sign up». Da kan ingen andre lage konto.
 2. Gå til **Authentication** → **Users** → **Add user**. Skriv inn e-posten din og et langt passord. Huk av for «Auto confirm».
-3. Tofaktor (TOTP) er på som standard i Supabase. Første gang du logger inn, viser siden en QR-kode du skanner med Microsoft Authenticator eller Google Authenticator.
+3. Gå til **SQL Editor** og kjør denne linjen, med din e-post. Den gjør deg til admin. Det trengs bare første gang:
+
+```sql
+update public.profil set rolle = 'admin' where epost = 'din@epost.no';
+```
+
+4. Tofaktor (TOTP) er på som standard i Supabase. Første gang du logger inn, viser siden en QR-kode du skanner med Microsoft Authenticator eller Google Authenticator.
 
 ## 3. Koble nettsiden til databasen
 
@@ -59,19 +65,51 @@ Når du endrer `index.html` senere: dra mappen inn på nytt under **Deploys** i 
 
 ## 6. Test hele løpet
 
-1. Gå til domenet og trykk **Logg inn**. Sett opp tofaktor.
+1. Gå til `https://ditt-domene.no/#intern` og logg inn. Sett opp tofaktor. Lagre adressen som bokmerke. Forsiden uten `#intern` er for leverandørene og har bare kodefeltet.
 2. Lag et anbud med oppdiktede data og send det ut.
 3. Inviter deg selv som leverandør. Kopier koden.
 4. Åpne siden i et **privat vindu** og skriv inn koden. Lever et tilbud.
 5. Gå tilbake som admin. Tilbudet skal ligge der. Tildel det og sjekk **Årsoversikt**.
+6. Lag en testbruker for en takstmann (se «Roller og brukere»), logg inn som den, og sjekk at du bare ser det den har laget.
 
 Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send meg feilmeldingen.
 
 ---
 
+## To innganger
+
+- **Forsiden** (`ditt-domene.no`) er for leverandørene. Der er det bare et felt for koden. Lenken i e-posten går hit, med koden ferdig utfylt.
+- **Intern innlogging** (`ditt-domene.no/#intern`) er for Storebrand og takstmenn. Alle logger inn med samme skjema. Systemet vet hvem du er og hva du får se.
+
+Å skjule innloggingen er ikke det som gir sikkerhet. Sikkerheten ligger i databasen. Men forsiden blir ryddigere for leverandørene.
+
+Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft). Da legges det til en knapp på samme innloggingsside. Eksterne takstmenn bruker fortsatt e-post og passord.
+
+## Roller og brukere
+
+| | Admin (Storebrand) | Takstmann (intern eller ekstern) |
+|---|---|---|
+| Lage anbud, invitere, svare på spørsmål | Ja | Ja |
+| Se anbud | Alle | Bare sine egne |
+| Årsoversikt og besparelser | Ja | Nei |
+| Tildele oppdraget | Ja | Nei – anbefaler, og Storebrand tildeler |
+| Gi roller og tilgang | Ja | Nei |
+
+**Slik legger du til en ny bruker:**
+
+1. I Supabase: **Authentication** → **Users** → **Add user**. Skriv e-post og et midlertidig passord, og huk av for «Auto confirm». Gi brukeren passordet på en trygg måte.
+2. I portalen: gå til **Brukere**. Den nye brukeren står der som «Venter på tilgang» og ser ingenting ennå.
+3. Velg rolle. For takstmenn velger du også intern eller ekstern. Trykk **Lagre**.
+
+**Slik stenger du tilgangen** når en takstmann slutter: sett rollen til «Sperret». Da ser de ingenting, selv om de logger inn. Det må alltid være minst én admin.
+
+**Anbefaling og tildeling:** Takstmannen velger tilbudet de mener er best, og trykker «Send anbefaling til Storebrand». Anbefaler de ikke laveste tilbud, må de skrive begrunnelse. I listen din står anbudet som «Venter på tildeling». Du ser anbefalingen og begrunnelsen, og tildeler selv.
+
+**Før eksterne takstmenn får tilgang:** De får se Storebrand-data. Snakk med IT om en avtale for hvordan de behandler dataene (databehandleravtale), og om hvem som stenger tilgangen når samarbeidet slutter.
+
 ## Slik fungerer anbudet
 
-**Saksbehandler** fyller ut seks steg:
+**Den som lager anbudet** (admin eller takstmann) fyller ut seks steg:
 
 1. **Saken** – skadenummer, skadetype, adresse og hva som skal anskaffes.
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
@@ -112,7 +150,9 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 
 ## Har du allerede satt opp databasen?
 
-Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alt som ligger i databasen fra før blir slettet.** Det går fint så lenge du bare har testdata.
+Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alle anbud, tilbud og spørsmål blir slettet.** Det går fint så lenge du bare har testdata.
+
+Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre deg selv til admin med SQL-linjen i steg 2.
 
 ## Hva som beskytter dataene
 
@@ -124,6 +164,11 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 | Leverandør ser kalkylen din | Kalkylen sendes aldri ut. Testet. |
 | Noen jukser med summen i nettleseren | Summen regnes ut på serveren, ut fra mengdene i anbudet. |
 | Anbudet endres etter at tilbud er gitt | Beskrivelse, vilkår, poster og kalkyle låses når anbudet sendes ut. Bare frister og befaring kan endres etterpå. |
+| Takstmann ser andres anbud | Databasen viser takstmenn bare anbud de har laget selv, med tilbud og spørsmål som hører til. |
+| Takstmann tildeler oppdraget selv | Databasen avviser det. Bare admin kan tildele. Takstmannen kan bare anbefale. |
+| Takstmann ser besparelser | Årsoversikten er tom for alle andre enn admin. |
+| Noen gir seg selv admin | Bare admin kan endre roller. Nye brukere starter som «Venter på tilgang». Det må alltid finnes minst én admin. |
+| Tidligere takstmann logger inn | Sett rollen til «Sperret». Da ser de ingenting. |
 | E-post går til feil leverandør | Ingenting sendes automatisk. Du ser hver e-post før den sendes, og sender den selv. |
 | Leverandør får vite hvem som spurte | Leverandørene ser bare den publiserte teksten, aldri hvem som spurte. Du kan skrive om spørsmålet før du publiserer. |
 | Svar endres i ettertid | Publiserte svar og avklaringer kan ikke endres eller slettes, heller ikke av deg. |
@@ -135,8 +180,8 @@ Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med d
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 92 tester av tilgangsreglene, de nye feltene, spørsmål og svar og utsending. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar og utsendingen av e-post.
+- **Databasen:** kjørt i ekte Postgres med 117 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar og utsending. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen

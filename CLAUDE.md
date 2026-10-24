@@ -1,6 +1,6 @@
 # Anbudsportal – instrukser til Claude
 
-Nettside der Storebrand lager anbud på byggskader, leverandører gir pris med en kode, og saksbehandler sammenligner tilbud og ser besparelse per år.
+Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører gir pris med en kode, og Storebrand sammenligner tilbud, tildeler og ser besparelse per år.
 
 ## Filene
 
@@ -20,7 +20,9 @@ Nettside der Storebrand lager anbud på byggskader, leverandører gir pris med e
 8. **Felt som må stemme overens:** `ANBUD_FELT` i `index.html` må ha de samme feltene som tabellen `anbud` i `oppsett.sql`. Feltene som kan endres etter utsending (`ENDRES_ETTER_UTSENDING`) må stemme med låsen i `anbud_vakt`. De faste kravene (`FASTE_KRAV`) og standard tildelingsregel (`STD_TILDELING`) ligger i `index.html`.
 9. **Spørsmål og svar:** Leverandørene må aldri få se hvem som spurte, eller ubesvarte spørsmål fra andre. Publiserte svar kan ikke endres eller slettes (låst i `sporsmal_vakt`).
 10. **E-post:** Portalen sender aldri e-post selv. Invitasjoner forhåndsvises og åpnes i saksbehandlerens eget e-postprogram (mailto), én e-post per leverandør. Ikke legg inn automatisk utsending uten at Emil og IT har bestemt det.
-11. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør stiller spørsmål og leverer, saksbehandler svarer og tildeler, årsoversikt) på mobil- og PC-bredde, uten feil i konsollen.
+11. **Roller:** `admin` (Storebrand) ser alt, tildeler og gir roller. `takstmann` (intern eller ekstern) ser bare egne anbud, anbefaler men tildeler ikke, og ser aldri årsoversikt eller besparelser. Rollene håndheves i databasen (`min_rolle`, `er_admin`, `kan_se_anbud`), ikke bare i nettsiden. Tabellen `profil` slettes aldri av `oppsett.sql`.
+12. **To innganger:** Forsiden er bare for leverandører (kodefelt). Intern innlogging ligger på `#intern`. Ikke legg innloggingsknapp på forsiden.
+13. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør stiller spørsmål og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 
