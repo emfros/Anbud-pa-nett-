@@ -705,7 +705,7 @@ function demoApi() {
   const inv = (anbud, navn, epost, kode, aapnet) => { const i = { id: nyId('i'), anbud_id: anbud.id, leverandor: navn, epost, kode: ren(kode), kode_slutt: ren(kode).slice(-4), sendt: anbud.utsendt, sist_aapnet: aapnet, opprettet: anbud.utsendt }; db.inv.push(i); return i; };
   const tilbud = (i, firma, orgnr, kontakt, priser, forbehold, levert, g) => { const a = db.anbud.find(x => x.id === i.anbud_id);
     db.tilbud.push({ invitasjon_id: i.id, anbud_id: a.id, firmanavn: firma, orgnr, kontakt, telefon: '', epost: i.epost, priser, forbehold,
-      forbehold_bygg: g.fb || {}, byggetid_uker: g.uker, oppstart: g.start, timepris: g.time, bekreftet: true,
+      forbehold_bygg: g.fb || {}, byggetid_uker: g.plan ? renPlan(g.plan.map(([id, start, uker]) => ({ id, start, uker }))).slutt : g.uker, oppstart: g.start, timepris: g.time, bekreftet: true,
       fremdrift: g.plan ? { faser: g.plan.map(([id, start, uker]) => ({ id, start, uker })), kommentar: g.kom || '' } : null,
       sum_eks_mva: sumAnbud(a.bygg, priser).sum, levert, antall_innsendinger: 1 }); };
 
@@ -713,9 +713,9 @@ function demoApi() {
   const ia2 = inv(A, 'Østkant Rehab AS', 'post@ostkantrehab.no', 'B7C8-D9E0-F1A2-2231', dager(-29));
   const ia3 = inv(A, 'Grorud Våtrom AS', null, 'C4D5-E6F7-A8B9-3348', dager(-28));
   tilbud(ia1, 'Nordvik Bad og Bygg AS', '923456783', 'Henrik Nordvik', { a1: 7900, a2: 1050, a3: 820, a4: 1590, a5: 13800, a6: 690, a7: 240 }, '', dager(-24),
-    { uker: 5, start: dagFra(dager(-12)), time: 720, plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['torking', 2, 1], ['oppbygging', 3, 2], ['overflater', 4, 1.5], ['ferdig', 5, 0.5]] });
+    { uker: 5, start: dagFra(dager(-12)), time: 720, plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['torking', 2, 1], ['oppbygging', 3, 2], ['overflater', 4, 1.5], ['ferdig', 5, 1]] });
   tilbud(ia2, 'Østkant Rehab AS', '934567811', 'Sara Lund', { a1: 5500, a2: 890, a3: 760, a4: 1720, a5: 15900, a6: 760, a7: 195 }, '', dager(-22),
-    { uker: 6, start: dagFra(dager(-10)), time: 690, plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['torking', 2, 2], ['oppbygging', 4, 2], ['overflater', 5, 1.5], ['ferdig', 6, 0.5]] });
+    { uker: 6, start: dagFra(dager(-10)), time: 690, plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['torking', 2, 2], ['oppbygging', 4, 2], ['overflater', 5, 1.5], ['ferdig', 6, 1]] });
   tilbud(ia3, 'Grorud Våtrom AS', '945678127', 'Ali Rahimi', { a1: 9000, a2: 1100, a3: 850, a4: 1800, a5: 16500, a6: 800, a7: 260 }, '', dager(-21),
     { uker: 8, start: dagFra(dager(-5)), time: 780, fb: { pa: 'Forutsetter at bjelkelaget er tørt ved oppstart.' },
       plan: [['rigg', 1, 1], ['riving', 1, 1], ['torking', 2, 3], ['oppbygging', 5, 2], ['overflater', 7, 1.5], ['ferdig', 8, 1]], kom: 'Tørketiden er et anslag. Vi måler fukt før vi bygger opp.' });
@@ -725,10 +725,10 @@ function demoApi() {
   const ib2 = inv(B, 'Kolsås Snekker AS', 'firmapost@kolsas-snekker.no', 'E7F8-A9B0-C1D2-5519', dager(-2));
   inv(B, 'Asker Tre og Tak AS', null, 'F3A4-B5C6-D7E8-6627', null);
   tilbud(ib1, 'Bærum Fasade AS', '923456783', 'Mona Strand', { b1: 14500, b2: 1180, b3: 320, b4: 650 }, '', dager(-1),
-    { uker: 3, start: dagFra(dager(14)), time: 750, plan: [['rigg', 1, 0.5], ['riving', 1, 0.5], ['oppbygging', 1, 2], ['overflater', 2, 1.5], ['ferdig', 3, 0.5]] });
+    { uker: 3, start: dagFra(dager(14)), time: 750, plan: [['rigg', 1, 0.5], ['riving', 1, 0.5], ['oppbygging', 1, 2], ['overflater', 2, 1.5], ['ferdig', 3, 1]] });
   tilbud(ib2, 'Kolsås Snekker AS', '987654325', 'Per Kolstad', { b1: 9800, b2: 1240, b3: 360, b4: 720 }, 'Prisene forutsetter fri adkomst med lift.', dager(-1),
     { uker: 4, start: dagFra(dager(7)), time: 695, fb: { pc: 'Maling utføres når det er over 8 °C. Ellers neste vår.' },
-      plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['oppbygging', 2, 1.5], ['overflater', 3, 1.5], ['ferdig', 4, 0.5]], kom: 'Maler kommer når det er over 8 °C.' });
+      plan: [['rigg', 1, 0.5], ['riving', 1, 1], ['oppbygging', 2, 1.5], ['overflater', 3, 1.5], ['ferdig', 4, 1]], kom: 'Maler kommer når det er over 8 °C.' });
 
   const sp = (anbud, inv, sporsmal, tekst, svar, opprettet, publisert) => db.sporsmal.push({ id: nyId('s'), anbud_id: anbud.id, invitasjon_id: inv ? inv.id : null,
     sporsmal, publisert_tekst: tekst, svar, opprettet, publisert });
@@ -1442,13 +1442,17 @@ function vAnbud() {
   const valgt = valgtNaa();
   const valgtT = sortert.find(x => x.invitasjon_id === valgt);
   const trengerBegr = valgtT && valgtT.sum_eks_mva > laveste;
+  // Hvem blir ferdig først: oppstart + byggetid, så det er datoen som teller, ikke bare antall uker
+  const ferdig = x => ferdigDag(x.oppstart, tall(x.byggetid_uker));
+  const forstFerdig = sortert.map(ferdig).filter(Boolean).sort()[0];
+  const erForst = x => sortert.length > 1 && forstFerdig && ferdig(x) === forstFerdig;
   const avvik = s => a.kalkyle_sum ? ((s - a.kalkyle_sum) / a.kalkyle_sum * 100) : null;
   const pct = v => v == null ? '' : `<span class="${v > 0 ? 'neg' : 'pos'}">${v > 0 ? '+' : ''}${nf.format(Math.round(v * 10) / 10)} %</span>`;
 
   const kort = sortert.map((x, i) => { const navn = inv.find(v => v.id === x.invitasjon_id)?.leverandor || x.firmanavn;
     return `<label class="offer ${valgt === x.invitasjon_id || (avsluttet && x.invitasjon_id === a.tildelt_invitasjon) ? 'sel' : ''}">
       ${avsluttet ? `<span class="pnr">${i + 1}.</span>` : `<input type="radio" name="valg" data-act="velg" data-id="${x.invitasjon_id}" ${valgt === x.invitasjon_id ? 'checked' : ''}>`}
-      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${forbeholdListe(a, x).length ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''} ${!avsluttet && x.invitasjon_id === a.anbefalt_invitasjon ? '<span class="badge ny">Anbefalt</span>' : ''}</span>
+      <span><strong>${esc(x.firmanavn)}</strong> ${i === 0 ? '<span class="badge">Lavest</span>' : ''} ${erForst(x) ? '<span class="badge">Ferdig først</span>' : ''} ${forbeholdListe(a, x).length ? '<span class="badge w">Forbehold</span>' : ''} ${x.invitasjon_id === a.tildelt_invitasjon ? '<span class="badge">Tildelt</span>' : ''} ${!avsluttet && x.invitasjon_id === a.anbefalt_invitasjon ? '<span class="badge ny">Anbefalt</span>' : ''}</span>
       <span class="s">${kr(x.sum_eks_mva)}<br><span class="small">${pct(avvik(x.sum_eks_mva))}</span></span>
       <span class="meta gj"><span>Byggetid <b>${uker(tall(x.byggetid_uker))}</b></span><span>Oppstart <b>${datoDag(x.oppstart)}</b></span>${ferdigDag(x.oppstart, tall(x.byggetid_uker)) ? `<span>Ferdig ca. <b>${datoDag(ferdigDag(x.oppstart, tall(x.byggetid_uker)))}</b></span>` : ''}<span>Timepris <b>${kr(tall(x.timepris))}</b></span></span>
       <span class="meta"><span>Org.nr <span class="mono">${esc(x.orgnr)}</span></span><span>${esc(x.kontakt)}</span><span>Levert ${dato(x.levert)}${x.antall_innsendinger > 1 ? ` (endret ${x.antall_innsendinger - 1} g.)` : ''}</span>${navn !== x.firmanavn ? `<span>Invitert som ${esc(navn)}</span>` : ''}</span>
@@ -1464,6 +1468,7 @@ function vAnbud() {
     <tr class="sum"><td></td><td>Sum eks. mva</td><td></td><td class="n">${kr(a.kalkyle_sum)}</td>${kol.map(x => `<td class="n">${kr(x.sum_eks_mva)}</td>`).join('')}</tr>
     <tr class="gj"><td></td><td>Byggetid</td><td></td><td></td>${kol.map(x => `<td class="n">${uker(tall(x.byggetid_uker))}</td>`).join('')}</tr>
     <tr class="gj"><td></td><td>Oppstart</td><td></td><td></td>${kol.map(x => `<td class="n">${datoDag(x.oppstart)}</td>`).join('')}</tr>
+    <tr class="gj"><td></td><td>Ferdig ca.</td><td></td><td></td>${kol.map(x => `<td class="n ${erForst(x) ? 'lo' : ''}">${ferdig(x) ? datoDag(ferdig(x)) : '–'}${erForst(x) ? '<br><span class="badge">Ferdig først</span>' : ''}</td>`).join('')}</tr>
     <tr class="gj"><td></td><td>Timepris tilleggsarbeid</td><td></td><td></td>${kol.map(x => `<td class="n">${kr(tall(x.timepris))}</td>`).join('')}</tr>
     </tbody></table></div>`;
 
