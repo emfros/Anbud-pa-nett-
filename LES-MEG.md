@@ -1,9 +1,10 @@
 # Anbudsportal – slik setter du den opp
 
-Tre filer:
+Fire filer:
 
 - **index.html** – hele nettsiden. Står nøklene øverst tomme, kjører den som demo.
 - **oppsett.sql** – databasen med alle tilgangsregler.
+- **supabase/functions/vedlegg-lenker/index.ts** – en liten serverfunksjon som gir leverandørene lenker til vedleggene.
 - **LES-MEG.md** – denne filen.
 
 Regn med 1–2 timer første gang. Alt er gratis bortsett fra domenet (ca. 100–200 kr i året).
@@ -45,7 +46,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOi...';
 Den nøkkelen er laget for å ligge åpent i nettsider. Sikkerheten ligger i tilgangsreglene i databasen.
 **Bruk aldri nøkkelen som heter `service_role` eller `secret`.** Den går forbi alle reglene.
 
-## 4. Legg nettsiden ut (Netlify)
+## 4. Sett opp vedlegg (serverfunksjonen)
+
+Vedleggene ligger i en lukket «bøtte» (mappe for filer) i Supabase. `oppsett.sql` lager den.
+Storebrand og takstmenn får tilgang gjennom innloggingen. Leverandørene har ingen innlogging, så de får lenkene fra en liten serverfunksjon (Edge Function) som sjekker koden først.
+
+1. Sjekk at bøtta finnes: gå til **Storage**. Der skal det ligge en bøtte som heter **vedlegg**, merket **Private**.
+2. Gå til **Edge Functions** → **Deploy a new function** → **Via Editor**.
+3. Kall funksjonen **vedlegg-lenker** (nøyaktig slik, med bindestrek).
+4. Slett eksempelkoden. Lim inn hele innholdet i `supabase/functions/vedlegg-lenker/index.ts`. Trykk **Deploy**.
+5. Du trenger ikke legge inn noen nøkler. Supabase gir funksjonen adressen og service-nøkkelen selv. Den nøkkelen blir på serveren og kommer aldri ut i nettsiden.
+6. Test: åpne et anbud med vedlegg som leverandør. Står det «Fikk ikke hentet vedleggene», åpner du funksjonen i Supabase og ser under **Logs**. Står det **401** der, går du til funksjonens **Settings** (eller **Details**) og slår **av** «Verify JWT» (kan hete «Enforce JWT verification»). Det er trygt: funksjonen sjekker leverandørkoden selv og gir ingenting uten riktig kode.
+
+## 5. Legg nettsiden ut (Netlify)
 
 1. Lag en mappe som bare inneholder `index.html`.
 2. Gå til **app.netlify.com/drop** og dra mappen inn i nettleseren.
@@ -53,7 +66,7 @@ Den nøkkelen er laget for å ligge åpent i nettsider. Sikkerheten ligger i til
 
 Når du endrer `index.html` senere: dra mappen inn på nytt under **Deploys** i Netlify.
 
-## 5. Koble på ditt eget domene
+## 6. Koble på ditt eget domene
 
 1. Kjøp domenet, for eksempel hos **Domeneshop**.
 2. I Netlify: **Domain management** → **Add a domain** → skriv inn domenet.
@@ -63,13 +76,14 @@ Når du endrer `index.html` senere: dra mappen inn på nytt under **Deploys** i 
 4. Vent fra noen minutter til noen timer. Netlify lager HTTPS-sertifikatet selv.
 5. Tilbake i Supabase: **Authentication** → **URL Configuration**. Sett **Site URL** til `https://ditt-domene.no`.
 
-## 6. Test hele løpet
+## 7. Test hele løpet
 
 1. Gå til `https://ditt-domene.no/#intern` og logg inn. Sett opp tofaktor. Lagre adressen som bokmerke. Forsiden uten `#intern` er for leverandørene og har bare kodefeltet.
 2. Lag et anbud med oppdiktede data og send det ut.
 3. Inviter deg selv som leverandør. Kopier koden.
 4. Åpne siden i et **privat vindu** og skriv inn koden. Lever et tilbud.
 5. Gå tilbake som admin. Tilbudet skal ligge der. Tildel det og sjekk **Årsoversikt**.
+   Før du tildeler: last opp en PDF og et bilde under **Vedlegg**, og sjekk i det private vinduet at leverandøren kan åpne begge.
 6. Lag en testbruker for en takstmann (se «Roller og brukere»), logg inn som den, og sjekk at du bare ser det den har laget.
 
 Hvis noe feiler: åpne nettleserens utviklerverktøy (F12 → Console) og send meg feilmeldingen.
@@ -109,14 +123,15 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 
 ## Slik fungerer anbudet
 
-**Den som lager anbudet** (admin eller takstmann) fyller ut seks steg:
+**Den som lager anbudet** (admin eller takstmann) fyller ut sju steg:
 
 1. **Saken** – skadenummer, skadetype, adresse og hva som skal anskaffes.
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
 3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
 4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med.
 5. **Bygninger og poster** – mengder per post og din kalkyle.
-6. **Tildeling** – hvordan leverandør velges.
+6. **Vedlegg** – takstrapport, bilder og andre dokumenter (se «Vedlegg» under).
+7. **Tildeling** – hvordan leverandør velges.
 
 **Leverandøren** ser alt dette, og fyller ut firma, byggetid, tidligste oppstart, timepris for tilleggsarbeid, pris per post og forbehold per bygg. Til slutt krysser de av for at tilbudet følger kravene.
 
@@ -157,11 +172,24 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 - Det sendes ingen e-post. I listen over anbud ser du hvor mange spørsmål som venter på svar.
 - Med knappene øverst kan du vise alle, bare spørsmål eller bare avklaringer. Du har også «Venter på svar».
 
+## Vedlegg
+
+- **Hvem laster opp:** Storebrand og takstmenn, på steg 6 i utkastet eller under «Vedlegg» når anbudet er sendt ut. Et nytt utkast må lagres først.
+- **Hva:** PDF, bilder (JPG, PNG, HEIC), Word og Excel. Maks 20 MB per fil og 30 vedlegg per anbud. Andre filer avvises, både av nettsiden og av Supabase.
+- **Kategori:** Portalen gjetter (bilde, takstrapport, tegning eller annet). Du kan endre den i listen.
+- **Leverandøren** ser vedleggene under arbeidsomfanget. Bilder vises som små bilder, dokumenter med «Last ned». Lenkene virker i én time. Etterpå trykker de «Hent lenker på nytt».
+- **Etter utsending** kan du legge til vedlegg. De merkes «Lagt til etter utsending» hos deg og «Nytt» hos leverandøren. Har en leverandør allerede levert, blir de bedt om å sjekke om tilbudet må endres. Gi dem gjerne beskjed i tillegg, siden portalen ikke sender e-post.
+- **Fjern:** Filen slettes, og leverandørene ser den ikke lenger. Etter utsending blir det stående i listen at vedlegget fantes og når det ble fjernet, så historikken er hel. I et utkast forsvinner det helt.
+- **Når saken er tildelt eller avlyst,** kan du ikke legge til flere vedlegg. Du kan fortsatt fjerne, for eksempel hvis noe ble lastet opp ved en feil.
+- **Personvern:** Ikke last opp bilder der personer kan kjennes igjen, og fjern kundens navn og telefon fra rapporter før du laster dem opp. Leverandørene ser alt som ligger der.
+
 ## Har du allerede satt opp databasen?
 
 Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alle anbud, tilbud og spørsmål blir slettet.** Det går fint så lenge du bare har testdata.
 
 Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre deg selv til admin med SQL-linjen i steg 2.
+
+Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. Vil du rydde, går du til **Storage** → **vedlegg** og sletter mappene der. Serverfunksjonen (steg 4) må bare legges inn én gang. Endres `index.ts` senere, limer du inn den nye versjonen og trykker **Deploy** igjen.
 
 ## Hva som beskytter dataene
 
@@ -187,17 +215,24 @@ Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre 
 | Noen stjeler passordet ditt | Alt krever tofaktor. Uten det ser du ingenting, selv med riktig passord. |
 | Tilbud etter fristen | Databasen avviser det, uansett hva nettsiden sier. |
 | Tildeling uten grunn | Velger du ikke laveste tilbud, må du skrive begrunnelse. Det lagres. |
+| Noen finner vedleggene på nettet | Bøtta er lukket. Ingen fil har en fast, offentlig adresse. Alle lenker er signerte og slutter å virke etter én time. |
+| Leverandør ser vedlegg fra andre anbud | Serverfunksjonen sjekker koden og gir bare lenker til vedleggene på det anbudet koden hører til. Leverandøren ser aldri hvor filene ligger. |
+| Takstmann ser vedlegg på andres anbud | Tilgangen til filene følger samme regel som anbudet: takstmenn ser bare sine egne. Det sjekkes både i tabellen og i bøtta. |
+| Noen laster opp en farlig eller stor fil | Bøtta tar bare PDF, bilder, Word og Excel, maks 20 MB. Supabase avviser resten, uansett hva nettsiden sier. |
+| Vedlegg forsvinner sporløst etter utsending | Etter utsending kan vedlegg bare fjernes, ikke slettes. Det står igjen når det ble lagt til og fjernet. |
+| Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 124 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending og ny kode. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
-- **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
+- **Databasen:** kjørt i ekte Postgres med 148 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending, ny kode og vedlegg (også tilgangen til selve filene). Alle bestått.
+- **Serverfunksjonen for vedlegg:** 12 tester. Den gir lenker bare ved riktig kode, lenkene varer i én time, og feilmeldingene røper ingen detaljer. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode, vedlegg (opplasting, dra og slipp, feil filtype, for stor fil, kategori, fjerning og visning hos leverandøren) og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
+- **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging, tofaktor, opplasting til bøtta og serverfunksjonen der). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen
 
 - E-post sendes fra ditt eget e-postprogram, ikke fra portalen. Det er et bevisst valg (se «Slik inviterer du leverandører»).
-- Ingen vedlegg (tegninger, bilder). Kan legges til med Supabase Storage.
 - Konkurransegrunnlaget som eget dokument (PDF) er ikke med ennå. Leverandøren ser innholdet på nettsiden i stedet.
-- Fremdriftsplan kan ikke lastes opp, siden det ikke er vedlegg ennå.
+- Leverandøren kan ikke laste opp egne filer (for eksempel fremdriftsplan) ennå. Bare Storebrand og takstmenn laster opp.
+- I demoen ligger vedleggene bare i nettleseren. De forsvinner når du laster siden på nytt.
 - Gratisversjonen av Supabase pauser prosjektet etter en uke uten bruk. Du starter det igjen med ett klikk.

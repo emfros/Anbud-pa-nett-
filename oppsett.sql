@@ -13,6 +13,8 @@
 --    kalle tre funksjoner (hent, send tilbud, still spørsmål), og må
 --    oppgi en gyldig kode hver gang.
 --  * Spørsmål og svar deles med alle leverandørene, men aldri hvem som spurte.
+--  * Vedlegg ligger i en lukket bøtte. Leverandører får bare lenker som varer
+--    en time, laget av Edge Function «vedlegg-lenker» etter at koden er sjekket.
 --  * Koden lagres aldri i klartekst – bare et "fingeravtrykk" (hash).
 --  * Kalkylen din sendes aldri til leverandører.
 --  * Summen regnes ut på serveren, ikke i nettleseren.
@@ -20,6 +22,10 @@
 -- =====================================================================
 
 drop view  if exists public.aarsoversikt;
+drop table if exists public.vedlegg cascade;
+drop function if exists public.vedlegg_vakt() cascade;
+drop function if exists public.vedlegg_for_kode(text);
+drop function if exists public.vedlegg_sti_ok(text) cascade;
 drop table if exists public.sporsmal cascade;
 drop function if exists public.sporsmal_vakt();
 drop function if exists public.leverandor_sporsmal(text, text);
@@ -594,6 +600,123 @@ begin
   return jsonb_build_object('ok', true, 'opprettet', ny.opprettet);
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Vedlegg (takstrapport, bilder, tegninger, andre dokumenter)
+--  * Filene ligger i bøtta «vedlegg» i Supabase Storage. Den er lukket (ikke offentlig).
+--  * Maks 20 MB per fil og bare vanlige filtyper. Grensene settes på bøtta, så
+--    de gjelder uansett hva nettsiden gjør.
+--  * Stien er <anbud-id>/<tilfeldig>-<filnavn>. Tilgang styres av anbud-id-en.
+--  * Etter utsending kan vedlegg legges til (merkes som nye) og fjernes
+--    (filen slettes, men raden blir stående med tidspunkt, så historikken er hel).
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('vedlegg', 'vedlegg', false, 20971520, array[
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create table public.vedlegg (
+  id              uuid primary key default gen_random_uuid(),
+  anbud_id        uuid not null references public.anbud(id) on delete cascade,
+  sti             text not null unique,
+  navn            text not null check (char_length(navn) between 1 and 200),
+  kategori        text not null default 'annet' check (kategori in ('rapport','bilde','tegning','annet')),
+  mime            text not null default '',
+  storrelse       bigint not null default 0 check (storrelse between 0 and 20971520),
+  lastet_opp_av   uuid default auth.uid(),
+  opprettet       timestamptz not null default now(),
+  etter_utsending boolean not null default false,   -- lagt til etter at anbudet ble sendt ut
+  fjernet         timestamptz                        -- filen er fjernet; raden står igjen
+);
+create index on public.vedlegg (anbud_id);
+
+create function public.vedlegg_vakt() returns trigger
+language plpgsql as $$
+declare st text;
+begin
+  if tg_op = 'DELETE' then
+    if exists (select 1 from public.anbud where id = old.anbud_id and status <> 'utkast') then
+      raise exception 'Vedlegg på et utsendt anbud kan ikke slettes. Bruk «Fjern».';
+    end if;
+    return old;
+  end if;
+  select status into st from public.anbud where id = new.anbud_id;
+  if tg_op = 'INSERT' then
+    if st not in ('utkast','utsendt') then
+      raise exception 'Anbudet er avsluttet. Vedlegg kan ikke legges til.';
+    end if;
+    if split_part(new.sti, '/', 1) <> new.anbud_id::text then
+      raise exception 'Feil sti for vedlegget.';
+    end if;
+    if (select count(*) from public.vedlegg where anbud_id = new.anbud_id and fjernet is null) >= 30 then
+      raise exception 'Maks 30 vedlegg per anbud.';
+    end if;
+    new.etter_utsending := (st = 'utsendt');
+    new.opprettet := now(); new.lastet_opp_av := auth.uid(); new.fjernet := null;
+    return new;
+  end if;
+  -- UPDATE: bare kategori og navn kan endres, og vedlegget kan fjernes én gang
+  if old.fjernet is not null then
+    raise exception 'Vedlegget er fjernet.';
+  end if;
+  if (new.anbud_id, new.sti, new.mime, new.storrelse, new.lastet_opp_av, new.opprettet, new.etter_utsending)
+     is distinct from (old.anbud_id, old.sti, old.mime, old.storrelse, old.lastet_opp_av, old.opprettet, old.etter_utsending) then
+    raise exception 'Bare navn og kategori kan endres.';
+  end if;
+  if new.fjernet is not null then new.fjernet := now(); end if;
+  return new;
+end $$;
+create trigger vedlegg_vakt before insert or update or delete on public.vedlegg
+  for each row execute function public.vedlegg_vakt();
+
+alter table public.vedlegg enable row level security;
+create policy vedlegg_tilgang on public.vedlegg for all to authenticated
+  using (public.kan_se_anbud(anbud_id)) with check (public.kan_se_anbud(anbud_id));
+revoke all on public.vedlegg from anon;
+
+-- Tilgang til selve filene: samme regel, ut fra anbud-id-en først i stien
+create function public.vedlegg_sti_ok(p_sti text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case when split_part(p_sti, '/', 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    then exists (select 1 from public.anbud where id = split_part(p_sti, '/', 1)::uuid)
+         and public.kan_se_anbud(split_part(p_sti, '/', 1)::uuid)
+    else false end
+$$;
+drop policy if exists vedlegg_les on storage.objects;
+drop policy if exists vedlegg_last_opp on storage.objects;
+drop policy if exists vedlegg_slett on storage.objects;
+create policy vedlegg_les on storage.objects for select to authenticated
+  using (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+create policy vedlegg_last_opp on storage.objects for insert to authenticated
+  with check (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+create policy vedlegg_slett on storage.objects for delete to authenticated
+  using (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+
+-- Brukes BARE av Edge Function «vedlegg-lenker» (med service-nøkkelen på serveren).
+-- Sjekker koden og gir stiene til vedleggene leverandøren skal få lenker til.
+-- Koden har 64 bit tilfeldighet, så den kan ikke gjettes, selv uten sperren som
+-- leverandor_hent har (Edge Function ser ikke leverandørens IP-adresse på samme måte).
+create function public.vedlegg_for_kode(p_kode text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare inv invitasjon; a anbud; ren text := upper(regexp_replace(coalesce(p_kode, ''), '[^A-Za-z0-9]', '', 'g'));
+begin
+  select * into inv from invitasjon where kode_hash = encode(sha256(convert_to(ren, 'UTF8')), 'hex');
+  if inv.id is null then
+    return jsonb_build_object('ok', false, 'feil', 'Koden er ikke gyldig.');
+  end if;
+  select * into a from anbud where id = inv.anbud_id;
+  if a.status not in ('utsendt','tildelt') then
+    return jsonb_build_object('ok', false, 'feil', 'Anbudet er ikke åpent.');
+  end if;
+  return jsonb_build_object('ok', true, 'filer',
+    (select coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'sti', v.sti)), '[]'::jsonb)
+     from vedlegg v where v.anbud_id = a.id and v.fjernet is null));
+end $$;
+
 create function public.leverandor_hent(p_kode text)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -627,6 +750,11 @@ begin
     'mine', (select coalesce(jsonb_agg(jsonb_build_object('sporsmal', s.sporsmal, 'opprettet', s.opprettet)
               order by s.opprettet), '[]'::jsonb)
            from sporsmal s where s.invitasjon_id = inv.id and s.publisert is null),
+    -- Vedlegg (bare beskrivelse – selve lenkene lages av Edge Function)
+    'vedlegg', (select coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'navn', v.navn, 'kategori', v.kategori,
+              'mime', v.mime, 'storrelse', v.storrelse, 'opprettet', v.opprettet, 'etter_utsending', v.etter_utsending)
+              order by v.opprettet), '[]'::jsonb)
+           from vedlegg v where v.anbud_id = a.id and v.fjernet is null),
     'aapen', a.status = 'utsendt' and now() < a.frist,
     'anbud', jsonb_build_object(              -- NB: ingen kalkyle her
       'skadenr', a.skadenr, 'adresse', a.adresse, 'skadetype', a.skadetype,
@@ -744,6 +872,8 @@ grant  execute on function public.leverandor_send(text, jsonb) to anon, authenti
 revoke execute on function public.leverandor_sporsmal(text, text) from public;
 grant  execute on function public.leverandor_sporsmal(text, text) to anon, authenticated;
 revoke execute on function public.sporsmal_stengt(public.anbud) from public, anon;
+revoke execute on function public.vedlegg_for_kode(text) from public, anon, authenticated;
+grant  execute on function public.vedlegg_for_kode(text) to service_role;
 
 -- ---------------------------------------------------------------------
 -- Årsoversikt: én rad per anbud, klar for besparelse per år.

@@ -228,6 +228,35 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-var
 .qa-filter button span { font-weight: 400; color: var(--n500) }
 .qa-filter button.on { background: var(--red-600); border-color: var(--red-600); color: var(--n0) }
 .qa-filter button.on span { color: var(--red-100) }
+
+/* vedlegg */
+.vl-gruppe { display: grid; gap: 8px }
+.vl-gruppe h3 { font-size: 14px; margin: 0; color: var(--n700) }
+.vl { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
+.vl-rad { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--n200); border-radius: 14px; background: var(--n0) }
+.vl-rad.fjernet { background: var(--n50); color: var(--n500) }
+.vl-rad.fjernet .vl-navn { text-decoration: line-through; color: var(--n500) }
+.vl-mini, .vl-ikon { width: 48px; height: 48px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: var(--n100); color: var(--n600); font-size: 11px; font-weight: 700; letter-spacing: .04em }
+.vl-mini img { width: 100%; height: 100%; object-fit: cover; display: block }
+.vl-info { display: grid; gap: 2px; min-width: 0 }
+.vl-navn { font-weight: 600; color: var(--n900); overflow-wrap: anywhere }
+a.vl-navn { color: var(--red-700); text-decoration: none }
+a.vl-navn:hover { text-decoration: underline; text-underline-offset: 3px }
+.vl-rad select { width: auto; height: 34px; font-size: 13px; padding: 0 8px }
+.vl-bilder { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px }
+.vl-bilde { display: grid; gap: 4px; text-decoration: none; color: var(--n700); font-size: 12px; position: relative; min-width: 0; overflow-wrap: anywhere }
+.vl-bilde img, .vl-bilde .vl-tom { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--n100); border: 1px solid var(--n200); display: grid; place-items: center; color: var(--n500); font-weight: 700 }
+.vl-bilde .badge { position: absolute; top: 8px; left: 8px }
+.slipp { border: 2px dashed var(--n300); border-radius: 16px; padding: 20px; display: grid; gap: 8px; justify-items: center; text-align: center; background: var(--n50) }
+.slipp.over { border-color: var(--red-500); background: var(--red-50) }
+.slipp p { margin: 0 }
+label.filknapp { font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 999px; height: 42px; padding: 0 18px; border: 1px solid var(--red-600);
+  background: var(--red-600); color: var(--n0); display: inline-flex; align-items: center }
+label.filknapp:hover { background: var(--red-700) }
+label.filknapp:focus-within { box-shadow: 0 0 0 3px rgba(237,48,36,.25) }
+.vl-last { color: var(--red-700); font-weight: 600; font-size: 13px; text-decoration: none; white-space: nowrap }
+.vl-last:hover { text-decoration: underline; text-underline-offset: 3px }
+.vl-fot { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap }
 .fakta .kal { justify-self: start; font-size: 13px; margin-top: 2px }
 .sendt-sporsmal { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--n200) }
 .confirm.liten { padding: 10px 12px; gap: 8px; font-size: 13px; border-radius: 12px; max-width: 320px; white-space: normal }
@@ -306,6 +335,10 @@ table.brukere tr.venter td { background: var(--warn-50) }
   table.inv td:nth-child(3), table.inv td:nth-child(4) { grid-column: 1 / -1 }
   table.inv td:nth-child(4) .row { justify-content: flex-start !important }
   table.inv .confirm.liten { max-width: none }
+  .vl-rad { grid-template-columns: 40px minmax(0, 1fr) }
+  .vl-mini, .vl-ikon { width: 40px; height: 40px }
+  .vl-rad > select, .vl-rad > .vl-handling { grid-column: 2; justify-self: start }
+  .vl-bilder { grid-template-columns: repeat(2, minmax(0, 1fr)) }
 }
 @media (max-width: 520px) {
   h1 { font-size: 25px }
@@ -400,6 +433,20 @@ const leggTilDager = (dag, n) => { const d = new Date(dag + 'T12:00:00'); d.setD
 const datoDag = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
 const epostOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trim(v));
 const ROLLER = { admin: 'Admin', takstmann: 'Takstmann', venter: 'Venter på tilgang', sperret: 'Sperret' };
+// Vedlegg. Grensene står også på bøtta i Supabase, så de gjelder uansett hva nettsiden gjør.
+const KATEGORIER = { rapport: 'Takstrapport', bilde: 'Bilder', tegning: 'Tegninger', annet: 'Andre dokumenter' };
+const MAKS_FIL = 20 * 1024 * 1024, MAKS_VEDLEGG = 30;
+const FILTYPER = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+const FIL_AKSEPT = Object.keys(FILTYPER).map(x => '.' + x).join(',');
+// Filtypen ut fra det nettleseren sier, ellers ut fra endelsen (Safari oppgir ofte ikke HEIC)
+const filType = f => Object.values(FILTYPER).includes(f.type) ? f.type : FILTYPER[(String(f.name).split('.').pop() || '').toLowerCase()] || null;
+const storrelseTekst = b => b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' kB' : nf.format(Math.round(b / 1024 / 1024 * 10) / 10) + ' MB';
+const gjettKategori = (navn, mime) => mime.startsWith('image/') ? 'bilde' : /takst|rapport/i.test(navn) ? 'rapport' : /tegning|plantegning|skisse/i.test(navn) ? 'tegning' : 'annet';
+const visbartBilde = mime => ['image/jpeg', 'image/png', 'image/webp'].includes(mime);
+const filMerke = mime => mime === 'application/pdf' ? 'PDF' : /word/.test(mime) ? 'DOC' : /excel|sheet/.test(mime) ? 'XLS' : mime.startsWith('image/') ? 'BILDE' : 'FIL';
+const trygtNavn = n => String(n).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/_+/g, '_').slice(-80) || 'fil';
 const meg = () => S.sesjon?.profil || null;
 const erAdmin = () => meg()?.rolle === 'admin';
 const harTilgang = () => ['admin', 'takstmann'].includes(meg()?.rolle);
@@ -451,7 +498,38 @@ function supabaseApi(sb) {
       const invitasjoner = ut(await sb.from('invitasjon').select('id,leverandor,epost,kode_slutt,sendt,kode_fornyet,sist_aapnet,opprettet').eq('anbud_id', id).order('opprettet'));
       const tilbud = ut(await sb.from('tilbud').select('*').eq('anbud_id', id));
       const sporsmal = ut(await sb.from('sporsmal').select('id,invitasjon_id,sporsmal,publisert_tekst,svar,opprettet,publisert').eq('anbud_id', id).order('opprettet'));
-      return { anbud, invitasjoner, tilbud, sporsmal };
+      return { anbud, invitasjoner, tilbud, sporsmal, vedlegg: await this.listVedlegg(id) };
+    },
+    // Vedleggene med egne lenker som varer en time (bøtta er lukket)
+    async listVedlegg(anbudId) {
+      const v = ut(await sb.from('vedlegg').select('id,sti,navn,kategori,mime,storrelse,opprettet,etter_utsending,fjernet').eq('anbud_id', anbudId).order('opprettet'));
+      const aktive = v.filter(x => !x.fjernet);
+      if (aktive.length) {
+        const l = ut(await sb.storage.from('vedlegg').createSignedUrls(aktive.map(x => x.sti), 3600));
+        const url = Object.fromEntries(l.map(r => [r.path, r.signedUrl]));
+        aktive.forEach(x => { x.url = url[x.sti] || null; });
+      }
+      return v;
+    },
+    async lastOppVedlegg(anbudId, fil, kategori, mime) {
+      const sti = `${anbudId}/${crypto.randomUUID()}-${trygtNavn(fil.name)}`;
+      ut(await sb.storage.from('vedlegg').upload(sti, fil, { contentType: mime, upsert: false }));
+      const r = await sb.from('vedlegg').insert({ anbud_id: anbudId, sti, navn: String(fil.name).slice(0, 200), kategori, mime, storrelse: fil.size });
+      if (r.error) { await sb.storage.from('vedlegg').remove([sti]); throw new Error(r.error.message); }
+    },
+    async endreVedlegg(id, felt) { ut(await sb.from('vedlegg').update(felt).eq('id', id)); },
+    // På utkast slettes raden. Etter utsending blir raden stående med tidspunkt. Filen slettes i begge tilfeller.
+    async fjernVedlegg(v, status) {
+      if (status === 'utkast') ut(await sb.from('vedlegg').delete().eq('id', v.id));
+      else ut(await sb.from('vedlegg').update({ fjernet: new Date().toISOString() }).eq('id', v.id));
+      ut(await sb.storage.from('vedlegg').remove([v.sti]));
+    },
+    // Leverandøren får lenkene fra Edge Function «vedlegg-lenker», som sjekker koden først
+    async levVedleggLenker(kode) {
+      const { data, error } = await sb.functions.invoke('vedlegg-lenker', { body: { kode } });
+      if (error || !data) throw new Error('Fikk ikke hentet vedleggene. Prøv igjen om litt.');
+      if (!data.ok) throw new Error(data.feil || 'Fikk ikke hentet vedleggene.');
+      return data.lenker || {};
     },
     async publiserSvar(id, tekst, svar) { ut(await sb.from('sporsmal').update({ publisert_tekst: tekst, svar, publisert: new Date().toISOString() }).eq('id', id)); },
     async slettSporsmal(id) { ut(await sb.from('sporsmal').delete().eq('id', id)); },
@@ -467,7 +545,12 @@ function supabaseApi(sb) {
     async anbefal(id, inv, begrunnelse) { ut(await sb.from('anbud').update({ anbefalt_invitasjon: inv, anbefalt_begrunnelse: begrunnelse }).eq('id', id)); },
     async listBrukere() { return ut(await sb.from('profil').select('*').order('opprettet')); },
     async oppdaterBruker(id, felt) { ut(await sb.from('profil').update(felt).eq('id', id)); },
-    async slettAnbud(id) { ut(await sb.from('anbud').delete().eq('id', id)); },
+    async slettAnbud(id) {
+      // Filene må slettes før anbudet, ellers finnes det ingen anbud å sjekke tilgangen mot
+      const stier = ut(await sb.from('vedlegg').select('sti').eq('anbud_id', id)).map(x => x.sti);
+      if (stier.length) ut(await sb.storage.from('vedlegg').remove(stier));
+      ut(await sb.from('anbud').delete().eq('id', id));
+    },
     async lagInvitasjon(anbudId, navn, epost) { return ut(await sb.rpc('lag_invitasjon', { p_anbud: anbudId, p_leverandor: navn, p_epost: epost || null })); },
     async slettInvitasjon(id) { ut(await sb.from('invitasjon').delete().eq('id', id)); },
     async merkSendt(id) { ut(await sb.from('invitasjon').update({ sendt: new Date().toISOString() }).eq('id', id)); },
@@ -577,6 +660,46 @@ function demoApi() {
   sp(B, ib1, 'Skal gammel kledning kjøres bort av entreprenør?', 'Skal gammel kledning kjøres bort av entreprenør?', 'Ja. Avfall inngår i rigg og drift (post 1.1).', dager(-3), dager(-2));
   sp(B, null, '', null, 'Takrenne og vindskie skal ha samme farge som eksisterende (sort).', dager(-2), dager(-2) );
   sp(B, ib2, 'Hei, dette er Per i Kolsås Snekker. Kan vi bruke lift fra naboeiendommen i nord?', null, null, dager(-0.3), null);
+
+  // --- demovedlegg: en enkel PDF og bilder tegnet i nettleseren, laget først når noen ser dem ---
+  const tilBlobUrl = (bytes, type) => URL.createObjectURL(new Blob([bytes], { type }));
+  const lagPdf = linjer => {
+    const innhold = linjer.map((l, i) => `BT /F1 ${i ? 12 : 18} Tf 56 ${780 - i * 26} Td (${l.replace(/[()\\]/g, '\\$&')}) Tj ET`).join('\n');
+    const obj = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+      `<< /Length ${innhold.length} >>\nstream\n${innhold}\nendstream`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
+    let s = '%PDF-1.4\n'; const pos = [];
+    obj.forEach((o, i) => { pos.push(s.length); s += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const xref = s.length;
+    s += `xref\n0 ${obj.length + 1}\n0000000000 65535 f \n` + pos.map(p => String(p).padStart(10, '0') + ' 00000 n \n').join('')
+      + `trailer\n<< /Size ${obj.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return tilBlobUrl(Uint8Array.from(s, c => c.charCodeAt(0) & 255), 'application/pdf');
+  };
+  const lagBilde = (tekst, vegg, garasje) => {
+    const c = document.createElement('canvas'); c.width = 640; c.height = 480; const g = c.getContext('2d');
+    const himmel = g.createLinearGradient(0, 0, 0, 300); himmel.addColorStop(0, '#9fb8cc'); himmel.addColorStop(1, '#dfe7ec');
+    g.fillStyle = himmel; g.fillRect(0, 0, 640, 480); g.fillStyle = '#6f7d5a'; g.fillRect(0, 380, 640, 100);
+    const [x, y, w, h] = garasje ? [150, 230, 340, 150] : [90, 170, 460, 210];
+    g.fillStyle = vegg; g.fillRect(x, y, w, h);
+    g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; for (let yy = y + 14; yy < y + h; yy += 14) { g.beginPath(); g.moveTo(x, yy); g.lineTo(x + w, yy); g.stroke(); }
+    g.fillStyle = '#3b3533'; g.beginPath(); g.moveTo(x - 20, y); g.lineTo(x + w / 2, y - (garasje ? 70 : 120)); g.lineTo(x + w + 20, y); g.fill();
+    if (garasje) { g.fillStyle = '#d9d4cf'; g.fillRect(x + 70, y + 40, 200, 110); g.strokeStyle = '#c0392b'; g.lineWidth = 6; g.beginPath(); g.moveTo(x - 20, y + 4); g.lineTo(x + 120, y + 30); g.stroke(); }
+    else { g.fillStyle = '#f4f1ee'; [[150, 230], [380, 230]].forEach(([wx, wy]) => g.fillRect(wx, wy, 90, 70)); g.fillStyle = 'rgba(160,60,40,.35)'; g.fillRect(x, y, 140, h); }
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 430, 640, 50); g.fillStyle = '#fff'; g.font = '600 22px sans-serif'; g.fillText(tekst, 20, 463);
+    const d = atob(c.toDataURL('image/jpeg', 0.82).split(',')[1]);
+    return tilBlobUrl(Uint8Array.from(d, ch => ch.charCodeAt(0)), 'image/jpeg');
+  };
+  const lagere = {}, lenker = {};
+  const lenke = v => v.fjernet ? null : (lenker[v.id] ||= lagere[v.id]?.() || null);
+  db.vedlegg = [];
+  const vl = (anbud, navn, kategori, mime, storrelse, opprettet, lag) => { const v = { id: nyId('v'), anbud_id: anbud.id, sti: anbud.id + '/' + navn, navn, kategori, mime, storrelse,
+    opprettet, etter_utsending: !!anbud.utsendt && opprettet > anbud.utsendt, fjernet: null }; lagere[v.id] = lag; db.vedlegg.push(v); };
+  vl(A, 'Takstrapport SB-2026-04417.pdf', 'rapport', 'application/pdf', 412000, dager(-34), () => lagPdf(['Takstrapport (demo)', 'Skadesak SB-2026-04417, vannskade', 'Lekkasje fra sluk på bad i 2. etasje.', 'Oppdiktet eksempel. Ingen ekte kundedata.']));
+  vl(B, 'Takstrapport SB-2026-05102.pdf', 'rapport', 'application/pdf', 538000, dager(-5), () => lagPdf(['Takstrapport (demo)', 'Skadesak SB-2026-05102, stormskade', 'Kledning mot sørvest og takrenne på garasje er skadet.', 'Se bilder i anbudet.', 'Oppdiktet eksempel. Ingen ekte kundedata.']));
+  vl(B, 'Sørvestvegg oversikt.jpg', 'bilde', 'image/jpeg', 1840000, dager(-5), () => lagBilde('Sørvestvegg, skadet kledning', '#b9a07a'));
+  vl(B, 'Garasje takrenne.jpg', 'bilde', 'image/jpeg', 1520000, dager(-5), () => lagBilde('Garasje, takrenne revet løs', '#9c9187', true));
+  vl(B, 'Fargekode kledning og renne.pdf', 'annet', 'application/pdf', 96000, dager(-0.5), () => lagPdf(['Fargekoder (demo)', 'Kledning: samme farge som eksisterende', 'Takrenne og vindskie: sort', 'Oppdiktet eksempel.']));
+  const vedleggFor = id => db.vedlegg.filter(v => v.anbud_id === id).map(v => ({ ...v, url: lenke(v) }));
   const sporsmalStengt = a => a.status !== 'utsendt' ? 'Anbudet er stengt.' : new Date(a.frist) <= new Date() ? 'Fristen har gått ut.'
     : a.frist_sporsmal && dagFra(new Date().toISOString()) > a.frist_sporsmal ? 'Fristen for spørsmål har gått ut.' : null;
 
@@ -626,7 +749,27 @@ function demoApi() {
       ubesvarte: db.sporsmal.filter(s => s.anbud_id === a.id && !s.publisert).length }))).sort((a, b) => b.opprettet.localeCompare(a.opprettet)); },
     async hentAnbud(id) { await vent(); const a = hent(id);
       return kopi({ anbud: a, invitasjoner: db.inv.filter(i => i.anbud_id === id).map(({ kode, ...r }) => r), tilbud: db.tilbud.filter(t => t.anbud_id === id),
-        sporsmal: db.sporsmal.filter(s => s.anbud_id === id).sort((x, y) => x.opprettet.localeCompare(y.opprettet)) }); },
+        sporsmal: db.sporsmal.filter(s => s.anbud_id === id).sort((x, y) => x.opprettet.localeCompare(y.opprettet)), vedlegg: vedleggFor(id) }); },
+    async listVedlegg(anbudId) { await vent(); hent(anbudId); return kopi(vedleggFor(anbudId)); },
+    async lastOppVedlegg(anbudId, fil, kategori, mime) { await vent(); const a = hent(anbudId);
+      if (!['utkast', 'utsendt'].includes(a.status)) throw new Error('Anbudet er avsluttet. Vedlegg kan ikke legges til.');
+      if (!Object.values(FILTYPER).includes(mime)) throw new Error('Filtypen er ikke tillatt.');
+      if (fil.size > MAKS_FIL) throw new Error('Filen er større enn 20 MB.');
+      if (db.vedlegg.filter(v => v.anbud_id === anbudId && !v.fjernet).length >= MAKS_VEDLEGG) throw new Error('Maks 30 vedlegg per anbud.');
+      const v = { id: nyId('v'), anbud_id: anbudId, sti: anbudId + '/' + nyId('f') + '-' + trygtNavn(fil.name), navn: String(fil.name).slice(0, 200), kategori, mime, storrelse: fil.size,
+        opprettet: new Date().toISOString(), etter_utsending: a.status === 'utsendt', fjernet: null };
+      lenker[v.id] = URL.createObjectURL(fil); db.vedlegg.push(v); },
+    async endreVedlegg(id, felt) { const v = db.vedlegg.find(x => x.id === id); hent(v.anbud_id);
+      if (v.fjernet) throw new Error('Vedlegget er fjernet.');
+      if (Object.keys(felt).some(k => !['navn', 'kategori'].includes(k))) throw new Error('Bare navn og kategori kan endres.');
+      Object.assign(v, felt); },
+    async fjernVedlegg(x) { await vent(); const v = db.vedlegg.find(y => y.id === x.id); const a = hent(v.anbud_id);
+      if (v.fjernet) throw new Error('Vedlegget er fjernet.');
+      if (lenker[v.id]) URL.revokeObjectURL(lenker[v.id]); delete lenker[v.id]; delete lagere[v.id];
+      if (a.status === 'utkast') db.vedlegg = db.vedlegg.filter(y => y.id !== v.id); else v.fjernet = new Date().toISOString(); },
+    async levVedleggLenker(kode) { await vent(); const i = finn(kode); if (!i) throw new Error('Koden er ikke gyldig.');
+      const a = db.anbud.find(x => x.id === i.anbud_id); if (!['utsendt', 'tildelt'].includes(a.status)) throw new Error('Anbudet er ikke åpent.');
+      return Object.fromEntries(db.vedlegg.filter(v => v.anbud_id === a.id && !v.fjernet).map(v => [v.id, lenke(v)])); },
     async publiserSvar(id, tekst, svar) { await vent(); const s = db.sporsmal.find(x => x.id === id); const a = db.anbud.find(x => x.id === s.anbud_id);
       if (s.publisert) throw new Error('Publiserte svar kan ikke endres. Legg ut en avklaring i stedet.');
       if (a.status !== 'utsendt') throw new Error('Anbudet er avsluttet. Svar kan ikke publiseres.');
@@ -654,7 +797,7 @@ function demoApi() {
     async settStatus(id, status, ekstra = {}) { await vent(); const a = hent(id);
       if (status === 'tildelt' && jeg.rolle !== 'admin') throw new Error('Bare Storebrand (admin) kan tildele oppdraget. Send en anbefaling i stedet.');
       sjekkStatus(a, status, ekstra); Object.assign(a, { status, ...ekstra }); },
-    async slettAnbud(id) { db.anbud = db.anbud.filter(x => x.id !== id); },
+    async slettAnbud(id) { db.anbud = db.anbud.filter(x => x.id !== id); db.vedlegg = db.vedlegg.filter(v => v.anbud_id !== id); },
     async lagInvitasjon(anbudId, navn, epost) { await vent(); hent(anbudId); if (!trim(navn)) throw new Error('Skriv inn navnet på leverandøren.');
       const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sendt: null, sist_aapnet: null, opprettet: new Date().toISOString() };
       db.inv.push(i); return { id: i.id, kode: k }; },
@@ -680,7 +823,8 @@ function demoApi() {
       const qa = db.sporsmal.filter(s => s.anbud_id === a.id && s.publisert).sort((x, y) => x.publisert.localeCompare(y.publisert))
         .map(s => ({ sporsmal: s.publisert_tekst, svar: s.svar, publisert: s.publisert, avklaring: s.sporsmal === '' }));
       const mine = db.sporsmal.filter(s => s.invitasjon_id === i.id && !s.publisert).map(s => ({ sporsmal: s.sporsmal, opprettet: s.opprettet }));
-      return kopi({ ok: true, leverandor: i.leverandor, forrige_besok: forrige, sporsmal_stengt: sporsmalStengt(a), qa, mine,
+      const vedlegg = db.vedlegg.filter(v => v.anbud_id === a.id && !v.fjernet).map(({ id, navn, kategori, mime, storrelse, opprettet, etter_utsending }) => ({ id, navn, kategori, mime, storrelse, opprettet, etter_utsending }));
+      return kopi({ ok: true, leverandor: i.leverandor, forrige_besok: forrige, sporsmal_stengt: sporsmalStengt(a), qa, mine, vedlegg,
         aapen: a.status === 'utsendt' && new Date(a.frist) > new Date(),
         anbud: forLeverandor(a), tilbud: t || null }); },
     async levSend(kode, t) { await vent(); const i = finn(kode); if (!i) return { ok: false, feil: 'Koden er ikke gyldig.' };
@@ -863,7 +1007,10 @@ function vRediger() {
       ${bygg}
       <div class="row between"><button data-act="nyttBygg">+ Bygg</button>
         <div class="small">Kalkyle eks. mva: <strong class="num" id="kalk-sum">${kr(ks.sum)}</strong> <span id="kalk-mangler" class="muted">${ks.mangler ? `(${ks.mangler} post uten kalkyle)` : ''}</span></div></div>`)}
-    ${steg(6, 'Tildeling', 'Slik velges leverandør. Leverandørene ser denne teksten.', fld('tildelingsregel', 'Tildelingsregel', { area: 3 }))}
+    ${steg(6, 'Vedlegg', 'Takstrapport, bilder og andre dokumenter. Leverandørene ser disse når anbudet er sendt ut.', u.id
+      ? `<div id="vedlegg" class="stack" style="gap:18px">${vVedlegg(u, S.utkastVedlegg || [])}</div>`
+      : `<div class="box info">Lagre utkastet først. Så kan du legge ved takstrapport, bilder og andre dokumenter.</div><div><button class="small" data-act="lagre">Lagre utkast nå</button></div>`)}
+    ${steg(7, 'Tildeling', 'Slik velges leverandør. Leverandørene ser denne teksten.', fld('tildelingsregel', 'Tildelingsregel', { area: 3 }))}
     ${S.bekreft === 'send' ? `<div class="confirm"><strong>Sende ut anbudet?</strong><p>Beskrivelsen, vilkårene, postene og kalkylen låses. Etterpå kan du bare endre frister og befaring, og invitere leverandører.</p>
         <div class="row"><button class="pri" data-act="sendUt">Ja, send ut</button><button data-act="avbryt">Avbryt</button></div></div>`
       : S.bekreft === 'slett' ? `<div class="confirm"><strong>Slette utkastet?</strong><div class="row"><button class="danger" data-act="slettAnbud">Ja, slett</button><button data-act="avbryt">Avbryt</button></div></div>`
@@ -1153,6 +1300,36 @@ function vBrukere() {
 }
 
 /* ---------- anbud (utsendt / avsluttet) ---------- */
+/* ---------- vedlegg (Storebrand og takstmann) ---------- */
+function vVedlegg(a, liste) {
+  const aktive = liste.filter(v => !v.fjernet), fjernede = liste.filter(v => v.fjernet);
+  const kanLeggeTil = ['utkast', 'utsendt'].includes(a.status);
+  const ikon = v => v.url && visbartBilde(v.mime)
+    ? `<a class="vl-mini" href="${esc(v.url)}" target="_blank" rel="noopener" aria-label="Åpne ${esc(v.navn)}"><img src="${esc(v.url)}" alt="" loading="lazy"></a>`
+    : `<span class="vl-ikon" aria-hidden="true">${filMerke(v.mime)}</span>`;
+  const rad = v => `<li class="vl-rad${v.fjernet ? ' fjernet' : ''}" data-vid="${v.id}">${ikon(v)}
+      <div class="vl-info">${v.url ? `<a class="vl-navn" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.navn)}</a>` : `<span class="vl-navn">${esc(v.navn)}</span>`}
+        <span class="small muted">${storrelseTekst(v.storrelse)} · ${dato(v.opprettet)}${v.fjernet ? ` · fjernet ${dato(v.fjernet)}` : ''}</span>
+        ${v.etter_utsending && !v.fjernet ? '<span><span class="badge ny">Lagt til etter utsending</span></span>' : ''}</div>
+      ${v.fjernet ? '' : `<select data-vk="${v.id}" aria-label="Kategori for ${esc(v.navn)}">${Object.entries(KATEGORIER).map(([k, n]) => `<option value="${k}" ${k === v.kategori ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        <div class="vl-handling">${S.bekreft === 'fjernV:' + v.id ? `<div class="confirm liten"><span>Fjerne ${esc(v.navn)}? ${a.status === 'utkast' ? 'Filen slettes.' : 'Filen slettes, og leverandørene ser den ikke lenger.'}</span>
+          <div class="row"><button class="danger small" data-act="fjernV" data-id="${v.id}">Ja, fjern</button><button class="small" data-act="avbryt">Avbryt</button></div></div>`
+          : `<button class="ghost danger small" data-act="spørFjernV" data-id="${v.id}">Fjern</button>`}</div>`}</li>`;
+  const grupper = Object.entries(KATEGORIER).map(([k, n]) => { const g = aktive.filter(v => v.kategori === k);
+    return g.length ? `<div class="vl-gruppe"><h3>${n} <span class="muted">(${g.length})</span></h3><ul class="vl">${g.map(rad).join('')}</ul></div>` : ''; }).join('');
+  return `${S.vedleggFeil?.length ? `<div class="box err" role="alert"><strong>${S.vedleggFeil.length === 1 ? 'En fil ble ikke lastet opp' : 'Noen filer ble ikke lastet opp'}</strong><ul>${S.vedleggFeil.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''}
+    ${aktive.length ? grupper : '<p class="muted">Ingen vedlegg ennå.</p>'}
+    ${kanLeggeTil ? (S.lasterOpp ? `<div class="slipp" aria-live="polite"><p><strong>Laster opp ${S.lasterOpp.nr} av ${S.lasterOpp.av} …</strong></p><span class="hint">${esc(S.lasterOpp.navn)}</span></div>`
+      : aktive.length >= MAKS_VEDLEGG ? `<div class="box info small">Anbudet har ${MAKS_VEDLEGG} vedlegg, som er maks. Fjern ett for å legge til flere.</div>`
+      : `<div class="box warn small"><strong>Personvern:</strong> Ikke last opp bilder der personer kan kjennes igjen, og fjern kundens navn og telefon fra rapporter før du laster dem opp. Leverandørene ser alt som ligger her.</div>
+        <div class="slipp" id="slipp"><p><strong>Dra filer hit</strong>, eller</p>
+          <label class="filknapp">Velg filer<input type="file" id="vedleggFil" multiple accept="${FIL_AKSEPT}" hidden></label>
+          <span class="hint">PDF, bilder (JPG, PNG, HEIC), Word og Excel. Maks 20 MB per fil og ${MAKS_VEDLEGG} vedlegg per anbud.</span></div>
+        ${a.status === 'utsendt' ? '<p class="hint">Nye vedlegg merkes som nye hos leverandørene. Gi dem gjerne beskjed, særlig hvis noen allerede har levert.</p>' : ''}`)
+      : ''}
+    ${fjernede.length ? `<details><summary class="small muted">Fjernet (${fjernede.length})</summary><ul class="vl" style="margin-top:8px">${fjernede.map(rad).join('')}</ul></details>` : ''}`;
+}
+
 function vAnbud() {
   const { anbud: a, invitasjoner: inv, tilbud: t } = S.aktiv;
   const sortert = [...t].sort((x, y) => x.sum_eks_mva - y.sum_eks_mva);
@@ -1214,6 +1391,8 @@ function vAnbud() {
     </section>
     <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
       <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
+    <section class="panel" id="vedlegg"><div class="steg-h"><h2>Vedlegg</h2><p class="sub">Takstrapport, bilder og andre dokumenter. Leverandørene ser disse.</p></div>
+      ${vVedlegg(a, S.aktiv.vedlegg || [])}</section>
     ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
     ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva.${erAdmin() ? ` Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.` : ''}${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
@@ -1275,6 +1454,37 @@ function vAar() {
 }
 
 /* ---------- leverandør ---------- */
+// Vedlegg er nye for leverandøren når de kom etter utsending og etter forrige besøk
+const vedleggNytt = (v, L) => v.etter_utsending && L.data.forrige_besok && new Date(v.opprettet) > new Date(L.data.forrige_besok);
+function vVedleggLev(L) {
+  const liste = L.data.vedlegg || [];
+  if (!liste.length) return '';
+  const url = id => L.lenker?.[id] || null;
+  const ny = v => vedleggNytt(v, L) ? '<span class="badge ny">Nytt</span>' : '';
+  const grupper = Object.entries(KATEGORIER).map(([k, n]) => { const g = liste.filter(v => v.kategori === k); if (!g.length) return '';
+    const bilder = g.filter(v => visbartBilde(v.mime)), andre = g.filter(v => !visbartBilde(v.mime));
+    return `<div class="vl-gruppe"><h3>${n}</h3>
+      ${bilder.length ? `<div class="vl-bilder">${bilder.map(v => url(v.id)
+        ? `<a class="vl-bilde" href="${esc(url(v.id))}" target="_blank" rel="noopener">${ny(v)}<img src="${esc(url(v.id))}" alt="${esc(v.navn)}" loading="lazy"><span>${esc(v.navn)}</span></a>`
+        : `<span class="vl-bilde">${ny(v)}<span class="vl-tom">BILDE</span><span>${esc(v.navn)}</span></span>`).join('')}</div>` : ''}
+      ${andre.length ? `<ul class="vl">${andre.map(v => `<li class="vl-rad"><span class="vl-ikon" aria-hidden="true">${filMerke(v.mime)}</span>
+        <div class="vl-info">${url(v.id) ? `<a class="vl-navn" href="${esc(url(v.id))}" target="_blank" rel="noopener">${esc(v.navn)}</a>` : `<span class="vl-navn">${esc(v.navn)}</span>`}
+          <span class="small muted">${storrelseTekst(v.storrelse)}</span></div>
+        <span>${ny(v)}</span>${url(v.id) ? `<a class="vl-last" href="${esc(url(v.id))}" target="_blank" rel="noopener" download="${esc(v.navn)}">Last ned</a>` : '<span></span>'}</li>`).join('')}</ul>` : ''}</div>`; }).join('');
+  return `<section class="panel" id="levVedlegg"><div class="steg-h"><h2>Vedlegg</h2><p class="sub">Takstrapport, bilder og andre dokumenter fra takstmannen.</p></div>
+    ${L.lenkeFeil ? `<div class="box warn">${esc(L.lenkeFeil)}</div>` : ''}
+    ${grupper}
+    <div class="vl-fot"><span class="hint">${L.lenker ? 'Av sikkerhetshensyn virker lenkene i én time.' : L.lenkeFeil ? '' : 'Henter lenker …'}</span>
+      ${L.lenker || L.lenkeFeil ? '<button class="ghost small" data-act="levLenker">Hent lenker på nytt</button>' : ''}</div></section>`;
+}
+async function hentLevLenker() {
+  const L = S.lev; if (!L?.data.vedlegg?.length) return;
+  L.lenkeFeil = null;
+  try { L.lenker = await api.levVedleggLenker(L.kode); } catch (e) { L.lenker = null; L.lenkeFeil = e.message || 'Fikk ikke hentet vedleggene.'; }
+  // Bytt bare ut vedleggsdelen, så leverandøren ikke mister det de holder på å skrive
+  const el = document.getElementById('levVedlegg');
+  if (S.lev === L && el) el.outerHTML = vVedleggLev(L);
+}
 function vLev() {
   const L = S.lev, a = L.data.anbud, f = L.form;
   const s = sumAnbud(a.bygg, f.priser);
@@ -1292,14 +1502,19 @@ function vLev() {
   const forrige = L.data.forrige_besok ? new Date(L.data.forrige_besok) : null;
   const nyeSvar = (L.data.qa || []).filter(s => forrige && new Date(s.publisert) > forrige).length;
   const svarEtterLevert = L.data.tilbud && (L.data.qa || []).some(s => new Date(s.publisert) > new Date(L.data.tilbud.levert));
-  return `${svarEtterLevert && !laast ? `<div class="box warn"><strong>Det er publisert svar etter at dere leverte.</strong> Sjekk under «Spørsmål og svar» om tilbudet må endres.</div>`
-      : nyeSvar ? `<div class="box info">Det har kommet ${nyeSvar === 1 ? 'ett nytt svar' : nyeSvar + ' nye svar'} siden sist. Se «Spørsmål og svar».</div>` : ''}
+  const nyeVedlegg = (L.data.vedlegg || []).filter(v => vedleggNytt(v, L)).length;
+  const vedleggEtterLevert = L.data.tilbud && (L.data.vedlegg || []).some(v => v.etter_utsending && new Date(v.opprettet) > new Date(L.data.tilbud.levert));
+  const og = x => x.filter(Boolean).join(' og ');
+  return `${(svarEtterLevert || vedleggEtterLevert) && !laast
+      ? `<div class="box warn"><strong>Det er ${og([svarEtterLevert && 'publisert svar', vedleggEtterLevert && 'lagt til vedlegg'])} etter at dere leverte.</strong> Sjekk ${og([svarEtterLevert && '«Spørsmål og svar»', vedleggEtterLevert && '«Vedlegg»'])} om tilbudet må endres.</div>`
+      : nyeSvar || nyeVedlegg ? `<div class="box info">Det har kommet ${og([nyeSvar && (nyeSvar === 1 ? 'ett nytt svar' : nyeSvar + ' nye svar'), nyeVedlegg && (nyeVedlegg === 1 ? 'ett nytt vedlegg' : nyeVedlegg + ' nye vedlegg')])} siden sist. Se ${og([nyeSvar && '«Spørsmål og svar»', nyeVedlegg && '«Vedlegg»'])}.</div>` : ''}
     <section class="panel">
       <div class="row between"><span class="small muted">Invitert: ${esc(L.data.leverandor)}</span><span class="chip ${laast ? 'avlyst' : 'utsendt'}">${laast ? 'Stengt' : igjen(a.frist)}</span></div>
       <div class="stack" style="gap:4px"><span class="step">Skadesak <span class="mono">${esc(a.skadenr)}</span></span><h1>${esc(trim(a.tittel) || 'Anbud')}</h1></div>
       ${d.fakta}
     </section>
     <section class="panel">${d.arbeid}</section>
+    ${vVedleggLev(L)}
     <section class="panel">${d.krav}</section>
     ${vQaLev(L)}
     ${laast ? `<div class="box warn">Fristen har gått ut. ${L.data.tilbud ? 'Her er tilbudet dere leverte.' : 'Dere leverte ikke tilbud på dette anbudet.'}</div>`
@@ -1377,8 +1592,8 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle';
-  if (d.anbud.status === 'utkast') { S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null;
+  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
 }
@@ -1392,6 +1607,7 @@ async function levAapne(kode) {
     forbehold_bygg: { ...(t?.forbehold_bygg || {}) }, bekreftet: false,
     priser: Object.fromEntries(Object.entries(t?.priser || {}).map(([k, v]) => [k, komma(v)])) } };
   S.view = 'lev'; S.feil = []; render();
+  hentLevLenker();
 }
 
 document.addEventListener('click', e => {
@@ -1413,7 +1629,11 @@ document.addEventListener('click', e => {
     liste: () => jobb(visListe),
     aar: () => jobb(async () => { S.aar = await api.aarsoversikt(); S.view = 'aar'; render(); }),
     aapne: () => jobb(() => aapneAnbud(id)),
-    nytt: () => { S.utkast = tom(); S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    nytt: () => { S.utkast = tom(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
+    fjernV: () => jobb(async () => { const { anbud, liste } = vedleggSted(); const v = liste.find(x => x.id === id);
+      await api.fjernVedlegg(v, anbud.status); S.bekreft = null; S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Vedlegget er fjernet'); keep(); }),
+    levLenker: () => { const el = document.getElementById('levVedlegg'); S.lev.lenker = null; S.lev.lenkeFeil = null; if (el) el.outerHTML = vVedleggLev(S.lev); hentLevLenker(); },
     nyttBygg: () => { S.utkast.bygg.push({ id: nyId('b'), navn: '', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }); keep(); },
     slettBygg: () => { S.utkast.bygg.splice(+el.dataset.bi, 1); keep(); },
     nyPost: () => { const b = S.utkast.bygg[+el.dataset.bi]; const forrige = b.poster[b.poster.length - 1]; b.poster.push({ id: nyId('p'), fag: forrige?.fag || 'Tømrer', beskrivelse: '', mengde: '', enhet: forrige?.enhet || 'm²' }); keep(); },
@@ -1495,6 +1715,37 @@ async function lagreUtkast(sendUt) {
     if (sendUt) { await api.settStatus(lagret.id, 'utsendt'); toast('Anbudet er sendt ut. Nå kan du invitere leverandører.'); await aapneAnbud(lagret.id); }
     else { S.utkast.id = lagret.id; toast('Utkastet er lagret'); keep(); }
   });
+}
+// Vedleggene hører til utkastet når vi redigerer, ellers til anbudet som er åpent
+const vedleggSted = () => S.view === 'rediger' ? { anbud: S.utkast, liste: S.utkastVedlegg || [] } : { anbud: S.aktiv.anbud, liste: S.aktiv.vedlegg || [] };
+async function lastVedleggPaaNytt(anbudId) {
+  const v = await api.listVedlegg(anbudId);
+  if (S.view === 'rediger' && S.utkast?.id === anbudId) S.utkastVedlegg = v;
+  else if (S.aktiv?.anbud.id === anbudId) S.aktiv.vedlegg = v;
+}
+async function lastOppFiler(filer) {
+  const { anbud, liste } = vedleggSted(); if (!anbud?.id || S.lasterOpp) return;
+  const feil = [], ok = [];
+  let plass = MAKS_VEDLEGG - liste.filter(v => !v.fjernet).length;
+  const klare = [];
+  for (const f of filer) {
+    const mime = filType(f);
+    if (!mime) feil.push(`${f.name}: filtypen er ikke tillatt. Bruk PDF, bilder, Word eller Excel.`);
+    else if (f.size > MAKS_FIL) feil.push(`${f.name}: filen er større enn 20 MB.`);
+    else if (!f.size) feil.push(`${f.name}: filen er tom.`);
+    else if (plass <= 0) feil.push(`${f.name}: anbudet har allerede ${MAKS_VEDLEGG} vedlegg, som er maks.`);
+    else { klare.push([f, mime]); plass--; }
+  }
+  for (const [n, [f, mime]] of klare.entries()) {
+    S.lasterOpp = { nr: n + 1, av: klare.length, navn: f.name }; keep();
+    try { await api.lastOppVedlegg(anbud.id, f, gjettKategori(f.name, mime), mime); ok.push(f.name); }
+    catch (e) { feil.push(`${f.name}: ${e.message || e}`); }
+  }
+  S.lasterOpp = null;
+  try { await lastVedleggPaaNytt(anbud.id); } catch (e) { feil.push(e.message || String(e)); }
+  S.vedleggFeil = feil;
+  if (ok.length) toast(ok.length === 1 ? 'Vedlegget er lastet opp' : `${ok.length} vedlegg er lastet opp`);
+  keep();
 }
 async function levSend() {
   const f = S.lev.form, a = S.lev.data.anbud, feil = [];
@@ -1584,7 +1835,20 @@ document.addEventListener('input', e => {
       $('#lmangler').textContent = s.mangler ? `${s.mangler} post(er) mangler pris` : ''; }
   }
 });
-document.addEventListener('change', e => { if (e.target.id === 'aarvalg') { S.valgtAar = +e.target.value; render(); } });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'aarvalg') { S.valgtAar = +t.value; render(); }
+  if (t.id === 'vedleggFil') { const filer = [...t.files]; t.value = ''; if (filer.length) lastOppFiler(filer); }
+  if (t.dataset.vk) jobb(async () => { const { anbud } = vedleggSted();
+    await api.endreVedlegg(t.dataset.vk, { kategori: t.value }); S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Kategorien er endret'); keep(); });
+});
+// Dra og slipp filer. Filer som slippes utenfor feltet, skal ikke åpnes i nettleseren (da mister man det man holder på med).
+const harFiler = e => [...(e.dataTransfer?.types || [])].includes('Files');
+document.addEventListener('dragover', e => { if (!harFiler(e)) return; e.preventDefault(); const z = e.target.closest?.('#slipp');
+  e.dataTransfer.dropEffect = z ? 'copy' : 'none'; z?.classList.add('over'); });
+document.addEventListener('dragleave', e => { const z = e.target.closest?.('#slipp'); if (z && !z.contains(e.relatedTarget)) z.classList.remove('over'); });
+document.addEventListener('drop', e => { if (!harFiler(e)) return; e.preventDefault(); const z = e.target.closest?.('#slipp');
+  if (z) { z.classList.remove('over'); lastOppFiler([...e.dataTransfer.files]); } });
 
 /* =====================================================================
    Oppstart

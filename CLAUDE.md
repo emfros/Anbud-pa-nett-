@@ -5,7 +5,8 @@ Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører g
 ## Filene
 
 - `index.html` – hele nettsiden i én fil. Kjører som demo når `SUPABASE_URL` og `SUPABASE_ANON_KEY` øverst i skriptet er tomme.
-- `oppsett.sql` – databasen i Supabase: tabeller, tilgangsregler (RLS) og de tre funksjonene leverandørene kaller (hent, send tilbud, still spørsmål).
+- `oppsett.sql` – databasen i Supabase: tabeller, tilgangsregler (RLS), bøtta for vedlegg med tilgangsregler, og de tre funksjonene leverandørene kaller (hent, send tilbud, still spørsmål).
+- `supabase/functions/vedlegg-lenker/index.ts` – Edge Function som sjekker leverandørkoden (via `vedlegg_for_kode`) og gir signerte lenker til vedleggene som varer én time. Den eneste koden som bruker service-nøkkelen.
 - `LES-MEG.md` – oppskriften for å sette opp alt, skrevet for Emil.
 
 ## Regler
@@ -22,7 +23,8 @@ Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører g
 10. **E-post:** Portalen sender aldri e-post selv. Invitasjoner forhåndsvises og åpnes i saksbehandlerens eget e-postprogram (mailto), én e-post per leverandør. Ikke legg inn automatisk utsending uten at Emil og IT har bestemt det.
 11. **Roller:** `admin` (Storebrand) ser alt, tildeler og gir roller. `takstmann` (intern eller ekstern) ser bare egne anbud, anbefaler men tildeler ikke, og ser aldri årsoversikt eller besparelser. Rollene håndheves i databasen (`min_rolle`, `er_admin`, `kan_se_anbud`), ikke bare i nettsiden. Tabellen `profil` slettes aldri av `oppsett.sql`.
 12. **To innganger:** Forsiden er bare for leverandører (kodefelt). Intern innlogging ligger på `#intern`. Ikke legg innloggingsknapp på forsiden.
-13. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør stiller spørsmål og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
+13. **Vedlegg:** Bøtta `vedlegg` er alltid lukket (aldri `public`). Stien er `<anbud-id>/<tilfeldig>-<filnavn>`, og tilgangen følger `kan_se_anbud` via `vedlegg_sti_ok`. Leverandører får aldri stien, bare lenker fra Edge Function. Etter utsending kan vedlegg bare fjernes (`fjernet` settes), ikke slettes (låst i `vedlegg_vakt`). Grensene (20 MB, filtyper, 30 per anbud) står både på bøtta, i `vedlegg_vakt` og i `index.html` (`MAKS_FIL`, `FILTYPER`, `MAKS_VEDLEGG`), og må stemme.
+14. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud, laster opp vedlegg og lager kode, leverandør stiller spørsmål og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 
