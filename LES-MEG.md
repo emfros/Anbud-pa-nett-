@@ -122,6 +122,8 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 
 Når du sammenligner, ser du byggetid, oppstart, timepris og forbehold ved siden av prisen.
 
+**Legg i kalender:** Ved befaring og tilbudsfrist er det en knapp som laster ned en kalenderfil (.ics). Den åpnes i Outlook, iPhone, Google Kalender og de fleste andre kalendere, med påminnelse dagen før. Endres befaringen senere, må leverandøren trykke på knappen igjen. Da oppdateres avtalen i stedet for at det blir to.
+
 ## Slik inviterer du leverandører
 
 Portalen sender aldri e-post selv. Du sender fra din egen e-post, i tre steg:
@@ -136,6 +138,8 @@ E-posten har også en lenke der koden er fylt inn, så leverandøren slipper å 
 
 Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, åpnet eller levert.
 
+**Trekk tilbake invitasjon** stenger koden med en gang. Du får et spørsmål før det skjer. Leverandører som allerede har levert, kan ikke trekkes tilbake.
+
 **Hvorfor sender ikke portalen selv?** En e-post med kode fra et ukjent domene som sier at den er fra Storebrand, ser ut som svindel og havner ofte i søppelposten. Skal portalen sende selv, bør det skje fra en Storebrand-adresse, og det krever IT.
 
 ## Spørsmål og svar
@@ -147,6 +151,7 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 - **Publiserte svar kan ikke endres eller slettes.** Har du skrevet feil, legger du ut en avklaring.
 - Leverandøren får beskjed om nye svar siden sist. Kommer det svar etter at de har levert, blir de bedt om å sjekke om tilbudet må endres.
 - Det sendes ingen e-post. I listen over anbud ser du hvor mange spørsmål som venter på svar.
+- Med knappene øverst kan du vise alle, bare spørsmål eller bare avklaringer. Du har også «Venter på svar».
 
 ## Har du allerede satt opp databasen?
 
@@ -181,7 +186,7 @@ Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre 
 ## Hva som er testet – og hva som ikke er det
 
 - **Databasen:** kjørt i ekte Postgres med 117 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar og utsending. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen

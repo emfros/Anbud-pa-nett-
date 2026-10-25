@@ -223,6 +223,13 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-var
 .qa-ny { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--n200) }
 .badge.ny { background: var(--red-600); color: var(--n0) }
 .qa-varsel { color: var(--warn); font-weight: 600 }
+.qa-filter { display: flex; gap: 6px; flex-wrap: wrap }
+.qa-filter button { height: 34px; padding: 0 12px; font-size: 13px; color: var(--n700); border-color: var(--n300) }
+.qa-filter button span { font-weight: 400; color: var(--n500) }
+.qa-filter button.on { background: var(--red-600); border-color: var(--red-600); color: var(--n0) }
+.qa-filter button.on span { color: var(--red-100) }
+.fakta .kal { justify-self: start; font-size: 13px; margin-top: 2px }
+.confirm.liten { padding: 10px 12px; gap: 8px; font-size: 13px; border-radius: 12px; max-width: 320px; white-space: normal }
 
 /* e-post-forhåndsvisning */
 .epost { border: 1px solid var(--n300); border-radius: 14px; overflow: hidden; background: var(--n0) }
@@ -895,16 +902,54 @@ const forbeholdListe = (a, t) => [
   ...a.bygg.filter(b => trim(t.forbehold_bygg?.[b.id])).map(b => [b.navn, t.forbehold_bygg[b.id]]),
   ...(trim(t.forbehold) ? [['', t.forbehold]] : [])];
 
+/* ---------- kalenderfil (.ics) for befaring og tilbudsfrist ---------- */
+const icsTekst = v => String(v || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1');
+const icsTid = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+// Kalenderlinjer kan være maks 75 bytes. Æ, ø og å tar 2 bytes, så vi teller bytes, ikke tegn.
+const brett = l => { const enc = new TextEncoder(), ut = []; let linje = '', n = 0;
+  for (const tegn of l) { const b = enc.encode(tegn).length; if (n + b > (ut.length ? 73 : 74)) { ut.push(linje); linje = ''; n = 0; } linje += tegn; n += b; }
+  ut.push(linje); return ut.map((x, i) => (i ? ' ' : '') + x).join('\r\n'); };
+function kalenderFil(a, type) {
+  const bef = type === 'befaring';
+  const start = bef ? new Date(a.befaring) : new Date(new Date(a.frist).getTime() - 30 * 6e4);
+  const slutt = bef ? new Date(start.getTime() + 60 * 6e4) : new Date(a.frist);
+  const kontakt = [a.takst_navn, a.takst_tlf, a.takst_epost].filter(trim).join(', ');
+  const beskrivelse = bef
+    ? `Befaring for anbud: ${a.tittel}\nSkadesak ${a.skadenr}${trim(a.oppmote) ? `\nOppmøte: ${a.oppmote}` : ''}\nKontakt: ${kontakt}`
+    : `Frist for å levere tilbud i Storebrands anbudsportal.\n${a.tittel}\nSkadesak ${a.skadenr}\nSpørsmål: ${kontakt}`;
+  const varsel = (tid, tekst) => ['BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:${tid}`, `DESCRIPTION:${icsTekst(tekst)}`, 'END:VALARM'];
+  const linjer = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Storebrand//Anbudsportal//NO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+    `UID:${type}-${a.skadenr.replace(/[^A-Za-z0-9-]/g, '')}@anbudsportal`, `SEQUENCE:${Math.floor(Date.now() / 6e4)}`, `DTSTAMP:${icsTid(new Date())}`,
+    `DTSTART:${icsTid(start)}`, `DTEND:${icsTid(slutt)}`,
+    `SUMMARY:${icsTekst((bef ? 'Befaring: ' : 'Tilbudsfrist: ') + a.tittel)}`,
+    `LOCATION:${icsTekst(bef ? a.adresse + (trim(a.oppmote) ? ` (${a.oppmote})` : '') : 'Storebrands anbudsportal')}`,
+    `DESCRIPTION:${icsTekst(beskrivelse)}`,
+    ...varsel('-P1D', bef ? 'Befaring i morgen' : 'Tilbudsfristen er i morgen'),
+    ...(bef ? varsel('-PT1H', 'Befaring om en time') : []),
+    'END:VEVENT', 'END:VCALENDAR'];
+  return linjer.map(brett).join('\r\n') + '\r\n';
+}
+function lastNedKalender(type) {
+  const a = ['lev', 'kvittering'].includes(S.view) ? S.lev.data.anbud : S.aktiv.anbud;
+  const fil = new Blob([kalenderFil(a, type)], { type: 'text/calendar;charset=utf-8' });
+  const lenke = document.createElement('a');
+  lenke.href = URL.createObjectURL(fil); lenke.download = `${type}-${a.skadenr}.ics`;
+  document.body.appendChild(lenke); lenke.click(); lenke.remove();
+  setTimeout(() => URL.revokeObjectURL(lenke.href), 2000);
+  toast('Kalenderfilen er lastet ned. Åpne den for å legge avtalen i kalenderen.');
+}
+
 /* ---------- anbudet slik leverandøren ser det ---------- */
 function anbudDeler(a) {
-  const fakta = (navn, verdi) => verdi ? `<div class="fakta"><span>${navn}</span><b>${verdi}</b></div>` : '';
+  const fakta = (navn, verdi, ekstra = '') => verdi ? `<div class="fakta"><span>${navn}</span><b>${verdi}</b>${ekstra}</div>` : '';
+  const kal = type => `<button class="link kal" data-act="kalender" data-type="${type}">Legg i kalender</button>`;
   const kontakt = [esc(a.takst_navn) + (trim(a.takst_firma) ? `, ${esc(a.takst_firma)}` : ''), trim(a.takst_epost) ? `<span class="mono">${esc(a.takst_epost)}</span>` : '', esc(a.takst_tlf)].filter(trim).join('<br>');
   return {
     fakta: `<div class="fakta-grid">
         ${fakta('Skadeadresse', esc(a.adresse))}${fakta('Skadetype', esc(a.skadetype))}
-        ${fakta('Befaring', a.befaring ? dato(a.befaring) + (trim(a.oppmote) ? `<br><span class="muted small">${esc(a.oppmote)}</span>` : '') : '')}
+        ${fakta('Befaring', a.befaring ? dato(a.befaring) + (trim(a.oppmote) ? `<br><span class="muted small">${esc(a.oppmote)}</span>` : '') : '', kal('befaring'))}
         ${fakta('Frist for spørsmål', a.frist_sporsmal ? datoDag(a.frist_sporsmal) : '')}
-        ${fakta('Tilbudsfrist', dato(a.frist))}${fakta('Vedståelsesfrist', a.vedstaelse ? datoDag(a.vedstaelse) : '')}
+        ${fakta('Tilbudsfrist', dato(a.frist), kal('frist'))}${fakta('Vedståelsesfrist', a.vedstaelse ? datoDag(a.vedstaelse) : '')}
         ${fakta('Ønsket ferdig', esc(a.onsket_ferdig))}${fakta('Spørsmål til', kontakt)}
       </div>`,
     arbeid: `<div class="stack"><h3>Arbeidsomfang</h3><p class="omfang">${esc(a.beskrivelse)}</p></div>
@@ -912,6 +957,12 @@ function anbudDeler(a) {
     krav: `<div class="stack"><h3>Krav</h3><ul class="krav-liste">${FASTE_KRAV.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>
       <div class="stack"><h3>Tildeling</h3><p class="omfang">${esc(a.tildelingsregel)}</p></div>`
   };
+}
+
+/* ---------- filter for spørsmål og svar ---------- */
+function qaFilter(aktiv, valg, act) {
+  return `<div class="qa-filter" role="group" aria-label="Vis">${valg.map(([k, navn, antall]) =>
+    `<button class="${aktiv === k ? 'on' : ''}" data-act="${act}" data-qf="${k}" aria-pressed="${aktiv === k}">${navn} <span>${antall}</span></button>`).join('')}</div>`;
 }
 
 /* ---------- spørsmål og svar (saksbehandler) ---------- */
@@ -922,7 +973,11 @@ function vQaAdmin(a, inv, sporsmal, avsluttet) {
   const u = S.qaUtkast;
   const grunn = a.status !== 'utsendt' ? 'Spørsmål og svar er stengt.' : new Date(a.frist) <= new Date() ? 'Tilbudsfristen har gått ut, så leverandørene kan ikke spørre mer.'
     : `Leverandørene kan stille spørsmål til og med ${a.frist_sporsmal ? datoDag(a.frist_sporsmal) : datoDag(a.frist) + ' (tilbudsfristen)'}.`;
-  const vent = ubesvarte.map(s => { const d = u[s.id] || { tekst: s.sporsmal, svar: '' };
+  const f = S.qaFilter || 'alle';
+  const sporsmalPub = publiserte.filter(s => s.sporsmal !== ''), avklaringer = publiserte.filter(s => s.sporsmal === '');
+  const visVent = ['alle', 'venter', 'sporsmal'].includes(f);
+  const visPub = f === 'alle' ? publiserte : f === 'sporsmal' ? sporsmalPub : f === 'avklaring' ? avklaringer : [];
+  const vent = !visVent ? '' : ubesvarte.map(s => { const d = u[s.id] || { tekst: s.sporsmal, svar: '' };
     return `<div class="qa-item vent">
       <div class="qa-meta"><span class="badge w">Venter på svar</span><span>Fra <strong>${esc(navn(s))}</strong> · ${dato(s.opprettet)}</span></div>
       <blockquote>${esc(s.sporsmal)}</blockquote>
@@ -935,15 +990,18 @@ function vQaAdmin(a, inv, sporsmal, avsluttet) {
           <div class="row"><button class="danger" data-act="slettSp" data-id="${s.id}">Ja, slett</button><button data-act="avbryt">Avbryt</button></div></div>`
         : `<div class="row"><button class="pri" data-act="spørPub" data-id="${s.id}">Publiser til alle</button><button class="ghost danger" data-act="spørSlettSp" data-id="${s.id}">Slett</button></div>`}`}
     </div>`; }).join('');
-  const pub = publiserte.map(s => `<div class="qa-item">
+  const pub = visPub.map(s => `<div class="qa-item">
       <div class="qa-meta">${s.sporsmal === '' ? '<span class="badge">Avklaring</span>' : `<span>Fra <strong>${esc(navn(s))}</strong></span>`}<span>Publisert ${dato(s.publisert)}</span></div>
       ${s.sporsmal === '' ? '' : `<p class="qa-q">${esc(s.publisert_tekst)}</p>`}<p class="qa-a">${esc(s.svar)}</p></div>`).join('');
   return `<section class="panel" id="qa">
     <div class="row between"><div class="steg-h"><h2>Spørsmål og svar</h2><p class="sub">Svarene publiseres til alle leverandørene. Hvem som spurte, vises aldri for de andre.</p></div>
       ${ubesvarte.length ? `<span class="chip utkast">${ubesvarte.length} venter</span>` : ''}</div>
     <p class="small muted">${grunn}</p>
+    ${sporsmal.length ? qaFilter(f, [['alle', 'Alle', sporsmal.length], ['venter', 'Venter på svar', ubesvarte.length],
+      ['sporsmal', 'Spørsmål', ubesvarte.length + sporsmalPub.length], ['avklaring', 'Avklaringer', avklaringer.length]], 'qaFilter') : ''}
     ${vent}${pub}
-    ${!ubesvarte.length && !publiserte.length ? '<p class="muted">Ingen spørsmål ennå.</p>' : ''}
+    ${!ubesvarte.length && !publiserte.length ? '<p class="muted">Ingen spørsmål ennå.</p>'
+      : !vent && !pub ? `<p class="muted">${{ venter: 'Ingen spørsmål venter på svar.', avklaring: 'Ingen avklaringer.', sporsmal: 'Ingen spørsmål.' }[f] || ''}</p>` : ''}
     ${avsluttet ? '' : `<div class="qa-ny">
       <label class="f"><span>Legg ut en avklaring til alle <em>(valgfritt)</em></span><textarea id="avklaring" rows="2" placeholder="F.eks. en rettelse eller noe alle bør vite">${esc(S.avklaring || '')}</textarea></label>
       ${S.bekreft === 'avklaring' ? `<div class="confirm"><strong>Publisere avklaringen til alle?</strong><p>Den kan ikke endres eller slettes etterpå.</p>
@@ -956,13 +1014,18 @@ function vQaAdmin(a, inv, sporsmal, avsluttet) {
 function vQaLev(L) {
   const d = L.data, forrige = d.forrige_besok ? new Date(d.forrige_besok) : null;
   const nytt = s => forrige && new Date(s.publisert) > forrige;
+  const f = L.qaFilter || 'alle', qa = d.qa || [], mine = d.mine || [];
+  const visQa = f === 'alle' ? qa : qa.filter(s => f === 'avklaring' ? s.avklaring : !s.avklaring);
+  const visMine = f === 'avklaring' ? [] : mine;
   return `<section class="panel" id="qa">
     <div class="steg-h"><h2>Spørsmål og svar</h2><p class="sub">Spørsmål og svar deles med alle leverandørene. Navnet deres vises ikke.</p></div>
-    ${(d.qa || []).map(s => `<div class="qa-item">
+    ${qa.length + mine.length ? qaFilter(f, [['alle', 'Alle', qa.length + mine.length], ['sporsmal', 'Spørsmål', qa.filter(s => !s.avklaring).length + mine.length],
+      ['avklaring', 'Avklaringer', qa.filter(s => s.avklaring).length]], 'qaFilterLev') : ''}
+    ${visQa.map(s => `<div class="qa-item">
       <div class="qa-meta">${s.avklaring ? '<span class="badge">Avklaring</span>' : ''}${nytt(s) ? '<span class="badge ny">Nytt</span>' : ''}<span>${dato(s.publisert)}</span></div>
       ${s.avklaring ? '' : `<p class="qa-q">${esc(s.sporsmal)}</p>`}<p class="qa-a">${esc(s.svar)}</p></div>`).join('')}
-    ${(d.mine || []).map(s => `<div class="qa-item vent"><div class="qa-meta"><span class="badge w">Venter på svar</span><span>Sendt ${dato(s.opprettet)}</span></div><p class="qa-q">${esc(s.sporsmal)}</p></div>`).join('')}
-    ${!(d.qa || []).length && !(d.mine || []).length ? '<p class="muted">Ingen spørsmål ennå.</p>' : ''}
+    ${visMine.map(s => `<div class="qa-item vent"><div class="qa-meta"><span class="badge w">Venter på svar</span><span>Sendt ${dato(s.opprettet)}</span></div><p class="qa-q">${esc(s.sporsmal)}</p></div>`).join('')}
+    ${!qa.length && !mine.length ? '<p class="muted">Ingen spørsmål ennå.</p>' : !visQa.length && !visMine.length ? `<p class="muted">${f === 'avklaring' ? 'Ingen avklaringer.' : 'Ingen spørsmål.'}</p>` : ''}
     ${d.sporsmal_stengt ? `<p class="small muted">${esc(d.sporsmal_stengt)}</p>` : `<div class="qa-ny">
       <label class="f">Still et spørsmål<textarea data-lq="1" rows="3" maxlength="2000" placeholder="Spør om det dere trenger for å gi riktig pris.">${esc(L.sporsmal || '')}</textarea>
         <span class="hint">${d.anbud.frist_sporsmal ? `Frist for spørsmål: ${datoDag(d.anbud.frist_sporsmal)}.` : ''} Svaret publiseres her.</span></label>
@@ -1107,7 +1170,9 @@ function vAnbud() {
     return `<tr><td>${esc(v.leverandor)}${v.epost ? `<br><span class="small muted">${esc(v.epost)}</span>` : ''}</td><td class="mono small">••••-${esc(v.kode_slutt)}</td>
       <td class="small">${lev ? `<span class="pos">Levert</span>` : v.sist_aapnet ? `Åpnet ${dato(v.sist_aapnet)}` : v.sendt ? `Sendt ${dato(v.sendt)}` : '<span class="qa-varsel">Ikke sendt</span>'}</td>
       <td><div class="row" style="gap:4px;justify-content:flex-end">${!avsluttet && !lev && !v.sendt && !v.sist_aapnet ? `<button class="small" data-act="merkSendt" data-id="${v.id}">Marker som sendt</button>` : ''}
-        ${!avsluttet && !lev ? `<button class="ghost danger small" data-act="slettInv" data-id="${v.id}">Trekk tilbake</button>` : ''}</div></td></tr>`; }).join('');
+        ${!avsluttet && !lev ? (S.bekreft === 'slettInv:' + v.id ? `<div class="confirm liten"><span>Trekke tilbake invitasjonen? Koden slutter å virke med en gang.</span>
+          <div class="row"><button class="danger small" data-act="slettInv" data-id="${v.id}">Ja, trekk tilbake</button><button class="small" data-act="avbryt">Avbryt</button></div></div>`
+          : `<button class="ghost danger small" data-act="spørSlettInv" data-id="${v.id}">Trekk tilbake invitasjon</button>`) : ''}</div></td></tr>`; }).join('');
 
 
   return `<button class="link back" data-act="liste">← Alle anbud</button>
@@ -1285,7 +1350,7 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null;
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle';
   if (d.anbud.status === 'utkast') { S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
@@ -1337,7 +1402,8 @@ document.addEventListener('click', e => {
     tildel: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'tildelt', { tildelt_invitasjon: valgtNaa(), tildelt_begrunnelse: trim(S.begrunnelse) || null }); toast('Oppdraget er tildelt'); await aapneAnbud(S.aktiv.anbud.id); }),
     spørAvlys: () => { S.bekreft = 'avlys'; keep(); },
     avlys: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'avlyst'); toast('Anbudet er avlyst'); await aapneAnbud(S.aktiv.anbud.id); }),
-    slettInv: () => jobb(async () => { await api.slettInvitasjon(id); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Invitasjonen er trukket tilbake. Koden virker ikke lenger.'); keep(); }),
+    spørSlettInv: () => { S.bekreft = 'slettInv:' + id; keep(); },
+    slettInv: () => jobb(async () => { S.bekreft = null; await api.slettInvitasjon(id); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Invitasjonen er trukket tilbake. Koden virker ikke lenger.'); keep(); }),
     kopierKode: () => kopier(S.nyKode.kode, 'Koden er kopiert'),
     kopierTekst: () => kopier(S.nyKode.tekst, 'Teksten er kopiert'),
     lukkKode: () => { S.nyKode = null; toast('Invitasjonen står som «Ikke sendt». Du kan markere den som sendt senere.'); keep(); },
@@ -1358,11 +1424,14 @@ document.addEventListener('click', e => {
     fyllkode: () => { $('#kode').value = el.dataset.kode; },
     kopierTsv: () => kopier(S._tsv, 'Kopiert. Lim inn i Excel.'),
     levSend: () => levSend(),
+    kalender: () => lastNedKalender(el.dataset.type),
     levSporsmal: () => jobb(async () => {
       const tekst = trim(S.lev.sporsmal); if (tekst.length < 5) throw new Error('Skriv spørsmålet.');
       const r = await api.levSporsmal(S.lev.kode, tekst); if (!r.ok) throw new Error(r.feil);
       S.lev.data.mine = [...(S.lev.data.mine || []), { sporsmal: tekst, opprettet: r.opprettet }]; S.lev.sporsmal = '';
       toast('Spørsmålet er sendt. Svaret publiseres her til alle.'); keep(); }),
+    qaFilter: () => { S.qaFilter = el.dataset.qf; keep(); },
+    qaFilterLev: () => { S.lev.qaFilter = el.dataset.qf; keep(); },
     spørPub: () => { S.bekreft = 'pub:' + id; keep(); },
     pub: () => jobb(async () => { const d = S.qaUtkast[id] || {}; const s = S.aktiv.sporsmal.find(x => x.id === id);
       await api.publiserSvar(id, trim(d.tekst ?? s.sporsmal), trim(d.svar)); delete S.qaUtkast[id]; S.bekreft = null;
