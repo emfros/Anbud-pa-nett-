@@ -1479,9 +1479,21 @@ async function levSend() {
   });
 }
 
-document.addEventListener('submit', e => {
-  e.preventDefault();
-  const f = e.target.dataset.form;
+// Skjemaene håndteres her. Vi lytter også på klikk og Enter selv, fordi noen innebygde
+// forhåndsvisninger (for eksempel i Claude) blokkerer vanlig innsending av skjema.
+document.addEventListener('submit', e => { e.preventDefault(); haandterSkjema(e.target); });
+document.addEventListener('click', e => {
+  const knapp = e.target.closest('button[type="submit"]');
+  if (knapp?.form?.dataset.form) { e.preventDefault(); haandterSkjema(knapp.form); }
+}, true);
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key !== 'Enter' || e.isComposing || t.tagName !== 'INPUT' || !t.form?.dataset.form) return;
+  e.preventDefault(); haandterSkjema(t.form);
+});
+function haandterSkjema(skjema) {
+  if (!skjema.reportValidity()) return;
+  const f = skjema.dataset.form;
   if (f === 'kode') { const k = $('#kode').value; if (!trim(k)) { S.feil = ['Skriv inn koden.']; return render(); } jobb(() => levAapne(k)); }
   if (f === 'login') jobb(async () => { await api.loggInn($('#epost').value, $('#passord').value); await tilAdmin(); });
   if (f === 'mfa') jobb(async () => { await api.mfaBekreft(S.mfa.faktorId, $('#mfakode').value.trim()); S.mfa = null; await tilAdmin(); });
@@ -1496,7 +1508,7 @@ document.addEventListener('submit', e => {
     if (sp && sp > dagFra(felt.frist)) throw new Error('Frist for spørsmål må være før tilbudsfristen.');
     if (b && new Date(b) >= new Date(felt.frist)) throw new Error('Befaringen må være før tilbudsfristen.');
     await api.oppdaterFrister(S.aktiv.anbud.id, felt); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Endringene er lagret'); keep(); });
-});
+}
 
 document.addEventListener('input', e => {
   const t = e.target;
