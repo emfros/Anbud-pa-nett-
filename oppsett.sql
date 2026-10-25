@@ -175,6 +175,7 @@ create table public.anbud (
   onsket_ferdig text not null default '',
   tildelingsregel text not null default
     'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.',
+  krev_fremdrift boolean not null default true,     -- Leverandøren må fylle ut fremdriftsplan
   status        text not null default 'utkast'
                 check (status in ('utkast','utsendt','tildelt','avlyst')),
   -- [{id, navn, poster:[{id, fag, beskrivelse, mengde, enhet}]}]
@@ -219,7 +220,10 @@ create table public.tilbud (
   priser        jsonb not null,        -- {"<post-id>": enhetspris eks. mva}
   forbehold     text not null default '',              -- Generelle forbehold
   forbehold_bygg jsonb not null default '{}'::jsonb,  -- {"<bygg-id>": "forbehold for dette bygget"}
-  byggetid_uker numeric(6,1) not null,
+  byggetid_uker numeric(6,1) not null,              -- Regnes ut fra fremdriftsplanen når den er påkrevd
+  -- Fremdriftsplan for hele saken: {"faser":[{"id":"rigg","start":1,"uker":0.5}], "kommentar":"..."}
+  -- start = uke nr. regnet fra oppstart (uke 1). Faser som ikke er aktuelle, er utelatt.
+  fremdrift     jsonb,
   oppstart      date not null,
   timepris      numeric(10,2) not null,              -- For tilleggsarbeid, eks. mva
   bekreftet     boolean not null default false,
@@ -328,10 +332,10 @@ begin
   -- Vilkårene leverandørene har priset etter, låses også. Frister, befaring og kontaktinfo kan endres.
   if old.status <> 'utkast' and
      (new.skadenr, new.adresse, new.skadetype, new.tittel, new.beskrivelse, new.saerlige_forhold,
-      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel)
+      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel, new.krev_fremdrift)
      is distinct from
      (old.skadenr, old.adresse, old.skadetype, old.tittel, old.beskrivelse, old.saerlige_forhold,
-      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel) then
+      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel, old.krev_fremdrift) then
     raise exception 'Beskrivelse og vilkår er låst etter at anbudet er sendt ut.';
   end if;
 
@@ -762,12 +766,12 @@ begin
       'takst_navn', a.takst_navn, 'takst_firma', a.takst_firma, 'takst_epost', a.takst_epost, 'takst_tlf', a.takst_tlf,
       'befaring', a.befaring, 'oppmote', a.oppmote, 'frist_sporsmal', a.frist_sporsmal,
       'frist', a.frist, 'vedstaelse', a.vedstaelse, 'onsket_ferdig', a.onsket_ferdig,
-      'tildelingsregel', a.tildelingsregel, 'bygg', a.bygg),
+      'tildelingsregel', a.tildelingsregel, 'krev_fremdrift', a.krev_fremdrift, 'bygg', a.bygg),
     'tilbud', case when t.invitasjon_id is null then null else jsonb_build_object(
       'firmanavn', t.firmanavn, 'orgnr', t.orgnr, 'kontakt', t.kontakt,
       'telefon', t.telefon, 'epost', t.epost, 'priser', t.priser,
       'forbehold', t.forbehold, 'forbehold_bygg', t.forbehold_bygg,
-      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris,
+      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris, 'fremdrift', t.fremdrift,
       'bekreftet', t.bekreftet, 'sum_eks_mva', t.sum_eks_mva, 'levert', t.levert) end
   );
 end $$;
@@ -782,6 +786,7 @@ declare
   v_levert timestamptz;
   v_byggetid numeric; v_timepris numeric; v_oppstart date;
   v_fb jsonb := '{}'::jsonb; fb_tekst text;
+  v_fremdrift jsonb; v_faser jsonb := '[]'::jsonb; fase jsonb; fid text; v_start numeric; v_uker numeric; v_slutt numeric := 0;
 begin
   inv := tilbud_finn(p_kode);
   if inv.id is null then
@@ -802,6 +807,28 @@ begin
   begin v_byggetid := (p_tilbud->>'byggetid_uker')::numeric; exception when others then v_byggetid := null; end;
   begin v_timepris := (p_tilbud->>'timepris')::numeric;      exception when others then v_timepris := null; end;
   begin v_oppstart := (p_tilbud->>'oppstart')::date;          exception when others then v_oppstart := null; end;
+
+  -- Fremdriftsplan: faste faser for hele saken. Byggetiden regnes ut her, ut fra planen.
+  if a.krev_fremdrift then
+    foreach fid in array array['rigg','riving','torking','oppbygging','overflater','ferdig'] loop
+      select x into fase from jsonb_array_elements(case when jsonb_typeof(p_tilbud->'fremdrift'->'faser') = 'array'
+        then p_tilbud->'fremdrift'->'faser' else '[]'::jsonb end) x where x->>'id' = fid limit 1;
+      continue when fase is null;
+      begin v_start := (fase->>'start')::numeric; v_uker := round((fase->>'uker')::numeric, 1);
+      exception when others then v_start := null; v_uker := null; end;
+      if v_start is null or v_uker is null or v_start < 1 or v_start > 104 or v_start <> trunc(v_start) or v_uker <= 0 or v_uker > 104 then
+        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. Startuke må være et helt tall fra 1, og varighet må være mer enn 0 uker.');
+      end if;
+      v_faser := v_faser || jsonb_build_array(jsonb_build_object('id', fid, 'start', v_start, 'uker', v_uker));
+      v_slutt := greatest(v_slutt, v_start - 1 + v_uker);
+    end loop;
+    if jsonb_array_length(v_faser) = 0 then
+      return jsonb_build_object('ok', false, 'feil', 'Fyll ut fremdriftsplanen.');
+    end if;
+    v_byggetid := v_slutt;
+    v_fremdrift := jsonb_build_object('faser', v_faser,
+      'kommentar', left(btrim(coalesce(p_tilbud->'fremdrift'->>'kommentar', '')), 1000));
+  end if;
   if v_byggetid is null or v_byggetid <= 0 or v_byggetid > 520 then
     return jsonb_build_object('ok', false, 'feil', 'Oppgi byggetid i uker.');
   end if;
@@ -842,20 +869,20 @@ begin
   end if;
 
   insert into tilbud (invitasjon_id, anbud_id, eier, firmanavn, orgnr, kontakt, telefon, epost,
-                      priser, forbehold, forbehold_bygg, byggetid_uker, oppstart, timepris, bekreftet, sum_eks_mva)
+                      priser, forbehold, forbehold_bygg, byggetid_uker, fremdrift, oppstart, timepris, bekreftet, sum_eks_mva)
   values (inv.id, a.id, a.eier, btrim(p_tilbud->>'firmanavn'), v_orgnr, btrim(p_tilbud->>'kontakt'),
           nullif(btrim(p_tilbud->>'telefon'), ''), nullif(btrim(p_tilbud->>'epost'), ''),
-          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_oppstart, v_timepris, true, total)
+          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_fremdrift, v_oppstart, v_timepris, true, total)
   on conflict (invitasjon_id) do update set
     firmanavn = excluded.firmanavn, orgnr = excluded.orgnr, kontakt = excluded.kontakt,
     telefon = excluded.telefon, epost = excluded.epost, priser = excluded.priser,
     forbehold = excluded.forbehold, forbehold_bygg = excluded.forbehold_bygg,
-    byggetid_uker = excluded.byggetid_uker, oppstart = excluded.oppstart, timepris = excluded.timepris,
+    byggetid_uker = excluded.byggetid_uker, fremdrift = excluded.fremdrift, oppstart = excluded.oppstart, timepris = excluded.timepris,
     bekreftet = excluded.bekreftet, sum_eks_mva = excluded.sum_eks_mva,
     levert = now(), antall_innsendinger = tilbud.antall_innsendinger + 1
   returning tilbud.levert into v_levert;
 
-  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'levert', v_levert,
+  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'byggetid_uker', v_byggetid, 'levert', v_levert,
     'kvittering', upper(substr(md5(inv.id::text || v_levert::text), 1, 8)));
 end $$;
 

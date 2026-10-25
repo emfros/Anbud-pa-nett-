@@ -128,14 +128,23 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 1. **Saken** – skadenummer, skadetype, adresse og hva som skal anskaffes.
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
 3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
-4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med.
+4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med. Her krysser du også av for om leverandøren må fylle ut fremdriftsplan. Det er på som standard.
 5. **Bygninger og poster** – mengder per post og din kalkyle.
 6. **Vedlegg** – takstrapport, bilder og andre dokumenter (se «Vedlegg» under).
 7. **Tildeling** – hvordan leverandør velges.
 
-**Leverandøren** ser alt dette, og fyller ut firma, byggetid, tidligste oppstart, timepris for tilleggsarbeid, pris per post og forbehold per bygg. Til slutt krysser de av for at tilbudet følger kravene.
+**Leverandøren** ser alt dette, og fyller ut firma, tidligste oppstart, timepris for tilleggsarbeid, fremdriftsplan, pris per post og forbehold per bygg. Til slutt krysser de av for at tilbudet følger kravene.
 
-Når du sammenligner, ser du byggetid, oppstart, timepris og forbehold ved siden av prisen.
+Når du sammenligner, ser du byggetid, oppstart, timepris, forbehold og fremdriftsplanene ved siden av prisen.
+
+## Fremdriftsplan
+
+- **En fast mal for hele saken**, ikke per fag. Seks faser: rigg og tildekking, riving og sanering, uttørking og venting, oppbygging, overflater, rydding og overlevering.
+- **Leverandøren fyller inn to tall per fase:** hvilken uke fasen starter, og hvor mange uker den tar. Uke 1 er uken de starter. Faser som ikke er aktuelle, står tomme. Faser kan gå samtidig.
+- **Byggetiden regnes ut fra planen**, både i nettsiden og i databasen. Leverandøren skriver den ikke selv, så plan og byggetid kan ikke vise forskjellige tall.
+- **En tidslinje tegnes automatisk** mens de fyller ut. Uttørking og venting vises med striper, så du ser hvor tiden går med til venting.
+- **Hos deg** står planene under hverandre med samme skala. Da ser du med en gang hvem som blir ferdig først.
+- **Påkrevd som standard.** Du kan krysse det av på steg 4 i små saker. Da skriver leverandøren bare byggetid i uker, som før. Valget låses når anbudet sendes ut.
 
 **Legg i kalender:** Ved befaring og tilbudsfrist er det en knapp som laster ned en kalenderfil (.ics). Den åpnes i Outlook, iPhone, Google Kalender og de fleste andre kalendere, med påminnelse dagen før. Endres befaringen senere, må leverandøren trykke på knappen igjen. Da oppdateres avtalen i stedet for at det blir to.
 
@@ -178,7 +187,7 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 - **Hva:** PDF, bilder (JPG, PNG, HEIC), Word og Excel. Maks 20 MB per fil og 30 vedlegg per anbud. Andre filer avvises, både av nettsiden og av Supabase.
 - **Kategori:** Portalen gjetter (bilde, takstrapport, tegning eller annet). Du kan endre den i listen.
 - **Leverandøren** ser vedleggene under arbeidsomfanget. Bilder vises som små bilder, dokumenter med «Last ned». Lenkene virker i én time. Etterpå trykker de «Hent lenker på nytt».
-- **Etter utsending** kan du legge til vedlegg. De merkes «Lagt til etter utsending» hos deg og «Nytt» hos leverandøren. Har en leverandør allerede levert, blir de bedt om å sjekke om tilbudet må endres. Gi dem gjerne beskjed i tillegg, siden portalen ikke sender e-post.
+- **Etter utsending** kan du legge til vedlegg. De får rød ramme og merket «Lagt til etter utsending», både hos deg og hos leverandøren. Øverst på leverandørens side kommer en rød boks med navn og dato på filene. Har leverandøren allerede levert, står det at de leverte før vedlegget kom, og at de må sjekke prisen. Når de sender tilbudet, bekrefter de også at de har sett vedleggene. Gi dem gjerne beskjed i tillegg, siden portalen ikke sender e-post.
 - **Fjern:** Filen slettes, og leverandørene ser den ikke lenger. Etter utsending blir det stående i listen at vedlegget fantes og når det ble fjernet, så historikken er hel. I et utkast forsvinner det helt.
 - **Når saken er tildelt eller avlyst,** kan du ikke legge til flere vedlegg. Du kan fortsatt fjerne, for eksempel hvis noe ble lastet opp ved en feil.
 - **Personvern:** Ikke last opp bilder der personer kan kjennes igjen, og fjern kundens navn og telefon fra rapporter før du laster dem opp. Leverandørene ser alt som ligger der.
@@ -220,19 +229,21 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Takstmann ser vedlegg på andres anbud | Tilgangen til filene følger samme regel som anbudet: takstmenn ser bare sine egne. Det sjekkes både i tabellen og i bøtta. |
 | Noen laster opp en farlig eller stor fil | Bøtta tar bare PDF, bilder, Word og Excel, maks 20 MB. Supabase avviser resten, uansett hva nettsiden sier. |
 | Vedlegg forsvinner sporløst etter utsending | Etter utsending kan vedlegg bare fjernes, ikke slettes. Det står igjen når det ble lagt til og fjernet. |
+| Leverandør overser vedlegg som kom etter utsending | Rød boks øverst på siden, rød ramme på filene, og de må bekrefte at de har sett dem før de sender. |
+| Byggetid og fremdriftsplan stemmer ikke | Byggetiden regnes ut fra planen i databasen. Tallet fra nettleseren brukes ikke. |
 | Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 148 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending, ny kode og vedlegg (også tilgangen til selve filene). Alle bestått.
+- **Databasen:** kjørt i ekte Postgres med 165 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending, ny kode, vedlegg (også tilgangen til selve filene) og fremdriftsplan. Alle bestått.
 - **Serverfunksjonen for vedlegg:** 12 tester. Den gir lenker bare ved riktig kode, lenkene varer i én time, og feilmeldingene røper ingen detaljer. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode, vedlegg (opplasting, dra og slipp, feil filtype, for stor fil, kategori, fjerning og visning hos leverandøren) og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode, vedlegg (opplasting, dra og slipp, feil filtype, for stor fil, kategori, fjerning, visning og varsel hos leverandøren), fremdriftsplan (utfylling, utregning av byggetid, tidslinje, kvittering og sammenligning) og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging, tofaktor, opplasting til bøtta og serverfunksjonen der). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen
 
 - E-post sendes fra ditt eget e-postprogram, ikke fra portalen. Det er et bevisst valg (se «Slik inviterer du leverandører»).
 - Konkurransegrunnlaget som eget dokument (PDF) er ikke med ennå. Leverandøren ser innholdet på nettsiden i stedet.
-- Leverandøren kan ikke laste opp egne filer (for eksempel fremdriftsplan) ennå. Bare Storebrand og takstmenn laster opp.
+- Leverandøren kan ikke laste opp egne filer. Bare Storebrand og takstmenn laster opp. Fremdriftsplanen fylles ut i malen i stedet.
 - I demoen ligger vedleggene bare i nettleseren. De forsvinner når du laster siden på nytt.
 - Gratisversjonen av Supabase pauser prosjektet etter en uke uten bruk. Du starter det igjen med ett klikk.
