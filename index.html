@@ -1077,7 +1077,7 @@ function vInviter(a) {
       <p>${nk.epost ? `E-posten til <strong>${esc(nk.epost)}</strong> skal nå være åpnet i e-postprogrammet ditt, ferdig utfylt. Se over og trykk send der.`
         : 'Kopier teksten og send den til leverandøren selv.'}</p>
       <div class="row">${nk.epost ? '<button data-act="aapneIgjen">Åpne e-posten igjen</button>' : ''}<button data-act="kopierTekst">Kopier teksten</button><button class="ghost" data-act="kopierKode">Kopier bare koden</button>
-        ${api.demo ? `<button class="ghost" data-act="provSom" data-kode="${esc(nk.kode)}">Prøv som leverandør →</button>` : ''}</div>
+        ${api.demo ? `<button class="ghost" data-act="provSom" data-kode="${esc(nk.kode)}">Demo: se siden som leverandøren →</button>` : ''}</div>
       <div class="row"><button class="pri" data-act="merkSendt" data-id="${nk.id}">Ja, marker som sendt</button><button data-act="lukkKode">Ikke ennå</button></div>
     </section>`;
   if (u) return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 2 av 3</span><h2>Se over e-posten</h2>
