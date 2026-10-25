@@ -13,6 +13,8 @@
 --    kalle tre funksjoner (hent, send tilbud, still spørsmål), og må
 --    oppgi en gyldig kode hver gang.
 --  * Spørsmål og svar deles med alle leverandørene, men aldri hvem som spurte.
+--  * Vedlegg ligger i en lukket bøtte. Leverandører får bare lenker som varer
+--    en time, laget av Edge Function «vedlegg-lenker» etter at koden er sjekket.
 --  * Koden lagres aldri i klartekst – bare et "fingeravtrykk" (hash).
 --  * Kalkylen din sendes aldri til leverandører.
 --  * Summen regnes ut på serveren, ikke i nettleseren.
@@ -20,6 +22,10 @@
 -- =====================================================================
 
 drop view  if exists public.aarsoversikt;
+drop table if exists public.vedlegg cascade;
+drop function if exists public.vedlegg_vakt() cascade;
+drop function if exists public.vedlegg_for_kode(text);
+drop function if exists public.vedlegg_sti_ok(text) cascade;
 drop table if exists public.sporsmal cascade;
 drop function if exists public.sporsmal_vakt();
 drop function if exists public.leverandor_sporsmal(text, text);
@@ -169,6 +175,7 @@ create table public.anbud (
   onsket_ferdig text not null default '',
   tildelingsregel text not null default
     'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.',
+  krev_fremdrift boolean not null default true,     -- Leverandøren må fylle ut fremdriftsplan
   status        text not null default 'utkast'
                 check (status in ('utkast','utsendt','tildelt','avlyst')),
   -- [{id, navn, poster:[{id, fag, beskrivelse, mengde, enhet}]}]
@@ -213,7 +220,10 @@ create table public.tilbud (
   priser        jsonb not null,        -- {"<post-id>": enhetspris eks. mva}
   forbehold     text not null default '',              -- Generelle forbehold
   forbehold_bygg jsonb not null default '{}'::jsonb,  -- {"<bygg-id>": "forbehold for dette bygget"}
-  byggetid_uker numeric(6,1) not null,
+  byggetid_uker numeric(6,1) not null,              -- Regnes ut fra fremdriftsplanen når den er påkrevd
+  -- Fremdriftsplan for hele saken: {"faser":[{"id":"rigg","start":1,"uker":0.5}], "kommentar":"..."}
+  -- start = uke nr. regnet fra oppstart (uke 1). Faser som ikke er aktuelle, er utelatt.
+  fremdrift     jsonb,
   oppstart      date not null,
   timepris      numeric(10,2) not null,              -- For tilleggsarbeid, eks. mva
   bekreftet     boolean not null default false,
@@ -322,10 +332,10 @@ begin
   -- Vilkårene leverandørene har priset etter, låses også. Frister, befaring og kontaktinfo kan endres.
   if old.status <> 'utkast' and
      (new.skadenr, new.adresse, new.skadetype, new.tittel, new.beskrivelse, new.saerlige_forhold,
-      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel)
+      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel, new.krev_fremdrift)
      is distinct from
      (old.skadenr, old.adresse, old.skadetype, old.tittel, old.beskrivelse, old.saerlige_forhold,
-      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel) then
+      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel, old.krev_fremdrift) then
     raise exception 'Beskrivelse og vilkår er låst etter at anbudet er sendt ut.';
   end if;
 
@@ -594,6 +604,123 @@ begin
   return jsonb_build_object('ok', true, 'opprettet', ny.opprettet);
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Vedlegg (takstrapport, bilder, tegninger, andre dokumenter)
+--  * Filene ligger i bøtta «vedlegg» i Supabase Storage. Den er lukket (ikke offentlig).
+--  * Maks 20 MB per fil og bare vanlige filtyper. Grensene settes på bøtta, så
+--    de gjelder uansett hva nettsiden gjør.
+--  * Stien er <anbud-id>/<tilfeldig>-<filnavn>. Tilgang styres av anbud-id-en.
+--  * Etter utsending kan vedlegg legges til (merkes som nye) og fjernes
+--    (filen slettes, men raden blir stående med tidspunkt, så historikken er hel).
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('vedlegg', 'vedlegg', false, 20971520, array[
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create table public.vedlegg (
+  id              uuid primary key default gen_random_uuid(),
+  anbud_id        uuid not null references public.anbud(id) on delete cascade,
+  sti             text not null unique,
+  navn            text not null check (char_length(navn) between 1 and 200),
+  kategori        text not null default 'annet' check (kategori in ('rapport','bilde','tegning','annet')),
+  mime            text not null default '',
+  storrelse       bigint not null default 0 check (storrelse between 0 and 20971520),
+  lastet_opp_av   uuid default auth.uid(),
+  opprettet       timestamptz not null default now(),
+  etter_utsending boolean not null default false,   -- lagt til etter at anbudet ble sendt ut
+  fjernet         timestamptz                        -- filen er fjernet; raden står igjen
+);
+create index on public.vedlegg (anbud_id);
+
+create function public.vedlegg_vakt() returns trigger
+language plpgsql as $$
+declare st text;
+begin
+  if tg_op = 'DELETE' then
+    if exists (select 1 from public.anbud where id = old.anbud_id and status <> 'utkast') then
+      raise exception 'Vedlegg på et utsendt anbud kan ikke slettes. Bruk «Fjern».';
+    end if;
+    return old;
+  end if;
+  select status into st from public.anbud where id = new.anbud_id;
+  if tg_op = 'INSERT' then
+    if st not in ('utkast','utsendt') then
+      raise exception 'Anbudet er avsluttet. Vedlegg kan ikke legges til.';
+    end if;
+    if split_part(new.sti, '/', 1) <> new.anbud_id::text then
+      raise exception 'Feil sti for vedlegget.';
+    end if;
+    if (select count(*) from public.vedlegg where anbud_id = new.anbud_id and fjernet is null) >= 30 then
+      raise exception 'Maks 30 vedlegg per anbud.';
+    end if;
+    new.etter_utsending := (st = 'utsendt');
+    new.opprettet := now(); new.lastet_opp_av := auth.uid(); new.fjernet := null;
+    return new;
+  end if;
+  -- UPDATE: bare kategori og navn kan endres, og vedlegget kan fjernes én gang
+  if old.fjernet is not null then
+    raise exception 'Vedlegget er fjernet.';
+  end if;
+  if (new.anbud_id, new.sti, new.mime, new.storrelse, new.lastet_opp_av, new.opprettet, new.etter_utsending)
+     is distinct from (old.anbud_id, old.sti, old.mime, old.storrelse, old.lastet_opp_av, old.opprettet, old.etter_utsending) then
+    raise exception 'Bare navn og kategori kan endres.';
+  end if;
+  if new.fjernet is not null then new.fjernet := now(); end if;
+  return new;
+end $$;
+create trigger vedlegg_vakt before insert or update or delete on public.vedlegg
+  for each row execute function public.vedlegg_vakt();
+
+alter table public.vedlegg enable row level security;
+create policy vedlegg_tilgang on public.vedlegg for all to authenticated
+  using (public.kan_se_anbud(anbud_id)) with check (public.kan_se_anbud(anbud_id));
+revoke all on public.vedlegg from anon;
+
+-- Tilgang til selve filene: samme regel, ut fra anbud-id-en først i stien
+create function public.vedlegg_sti_ok(p_sti text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case when split_part(p_sti, '/', 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    then exists (select 1 from public.anbud where id = split_part(p_sti, '/', 1)::uuid)
+         and public.kan_se_anbud(split_part(p_sti, '/', 1)::uuid)
+    else false end
+$$;
+drop policy if exists vedlegg_les on storage.objects;
+drop policy if exists vedlegg_last_opp on storage.objects;
+drop policy if exists vedlegg_slett on storage.objects;
+create policy vedlegg_les on storage.objects for select to authenticated
+  using (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+create policy vedlegg_last_opp on storage.objects for insert to authenticated
+  with check (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+create policy vedlegg_slett on storage.objects for delete to authenticated
+  using (bucket_id = 'vedlegg' and public.vedlegg_sti_ok(name));
+
+-- Brukes BARE av Edge Function «vedlegg-lenker» (med service-nøkkelen på serveren).
+-- Sjekker koden og gir stiene til vedleggene leverandøren skal få lenker til.
+-- Koden har 64 bit tilfeldighet, så den kan ikke gjettes, selv uten sperren som
+-- leverandor_hent har (Edge Function ser ikke leverandørens IP-adresse på samme måte).
+create function public.vedlegg_for_kode(p_kode text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare inv invitasjon; a anbud; ren text := upper(regexp_replace(coalesce(p_kode, ''), '[^A-Za-z0-9]', '', 'g'));
+begin
+  select * into inv from invitasjon where kode_hash = encode(sha256(convert_to(ren, 'UTF8')), 'hex');
+  if inv.id is null then
+    return jsonb_build_object('ok', false, 'feil', 'Koden er ikke gyldig.');
+  end if;
+  select * into a from anbud where id = inv.anbud_id;
+  if a.status not in ('utsendt','tildelt') then
+    return jsonb_build_object('ok', false, 'feil', 'Anbudet er ikke åpent.');
+  end if;
+  return jsonb_build_object('ok', true, 'filer',
+    (select coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'sti', v.sti)), '[]'::jsonb)
+     from vedlegg v where v.anbud_id = a.id and v.fjernet is null));
+end $$;
+
 create function public.leverandor_hent(p_kode text)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -627,6 +754,11 @@ begin
     'mine', (select coalesce(jsonb_agg(jsonb_build_object('sporsmal', s.sporsmal, 'opprettet', s.opprettet)
               order by s.opprettet), '[]'::jsonb)
            from sporsmal s where s.invitasjon_id = inv.id and s.publisert is null),
+    -- Vedlegg (bare beskrivelse – selve lenkene lages av Edge Function)
+    'vedlegg', (select coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'navn', v.navn, 'kategori', v.kategori,
+              'mime', v.mime, 'storrelse', v.storrelse, 'opprettet', v.opprettet, 'etter_utsending', v.etter_utsending)
+              order by v.opprettet), '[]'::jsonb)
+           from vedlegg v where v.anbud_id = a.id and v.fjernet is null),
     'aapen', a.status = 'utsendt' and now() < a.frist,
     'anbud', jsonb_build_object(              -- NB: ingen kalkyle her
       'skadenr', a.skadenr, 'adresse', a.adresse, 'skadetype', a.skadetype,
@@ -634,12 +766,12 @@ begin
       'takst_navn', a.takst_navn, 'takst_firma', a.takst_firma, 'takst_epost', a.takst_epost, 'takst_tlf', a.takst_tlf,
       'befaring', a.befaring, 'oppmote', a.oppmote, 'frist_sporsmal', a.frist_sporsmal,
       'frist', a.frist, 'vedstaelse', a.vedstaelse, 'onsket_ferdig', a.onsket_ferdig,
-      'tildelingsregel', a.tildelingsregel, 'bygg', a.bygg),
+      'tildelingsregel', a.tildelingsregel, 'krev_fremdrift', a.krev_fremdrift, 'bygg', a.bygg),
     'tilbud', case when t.invitasjon_id is null then null else jsonb_build_object(
       'firmanavn', t.firmanavn, 'orgnr', t.orgnr, 'kontakt', t.kontakt,
       'telefon', t.telefon, 'epost', t.epost, 'priser', t.priser,
       'forbehold', t.forbehold, 'forbehold_bygg', t.forbehold_bygg,
-      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris,
+      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris, 'fremdrift', t.fremdrift,
       'bekreftet', t.bekreftet, 'sum_eks_mva', t.sum_eks_mva, 'levert', t.levert) end
   );
 end $$;
@@ -654,6 +786,7 @@ declare
   v_levert timestamptz;
   v_byggetid numeric; v_timepris numeric; v_oppstart date;
   v_fb jsonb := '{}'::jsonb; fb_tekst text;
+  v_fremdrift jsonb; v_faser jsonb := '[]'::jsonb; fase jsonb; fid text; v_start numeric; v_uker numeric; v_slutt numeric := 0;
 begin
   inv := tilbud_finn(p_kode);
   if inv.id is null then
@@ -674,6 +807,28 @@ begin
   begin v_byggetid := (p_tilbud->>'byggetid_uker')::numeric; exception when others then v_byggetid := null; end;
   begin v_timepris := (p_tilbud->>'timepris')::numeric;      exception when others then v_timepris := null; end;
   begin v_oppstart := (p_tilbud->>'oppstart')::date;          exception when others then v_oppstart := null; end;
+
+  -- Fremdriftsplan: faste faser for hele saken. Byggetiden regnes ut her, ut fra planen.
+  if a.krev_fremdrift then
+    foreach fid in array array['rigg','riving','torking','oppbygging','overflater','ferdig'] loop
+      select x into fase from jsonb_array_elements(case when jsonb_typeof(p_tilbud->'fremdrift'->'faser') = 'array'
+        then p_tilbud->'fremdrift'->'faser' else '[]'::jsonb end) x where x->>'id' = fid limit 1;
+      continue when fase is null;
+      begin v_start := (fase->>'start')::numeric; v_uker := round((fase->>'uker')::numeric, 1);
+      exception when others then v_start := null; v_uker := null; end;
+      if v_start is null or v_uker is null or v_start < 1 or v_start > 104 or v_start <> trunc(v_start) or v_uker <= 0 or v_uker > 104 then
+        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. Startuke må være et helt tall fra 1, og varighet må være mer enn 0 uker.');
+      end if;
+      v_faser := v_faser || jsonb_build_array(jsonb_build_object('id', fid, 'start', v_start, 'uker', v_uker));
+      v_slutt := greatest(v_slutt, v_start - 1 + v_uker);
+    end loop;
+    if jsonb_array_length(v_faser) = 0 then
+      return jsonb_build_object('ok', false, 'feil', 'Fyll ut fremdriftsplanen.');
+    end if;
+    v_byggetid := v_slutt;
+    v_fremdrift := jsonb_build_object('faser', v_faser,
+      'kommentar', left(btrim(coalesce(p_tilbud->'fremdrift'->>'kommentar', '')), 1000));
+  end if;
   if v_byggetid is null or v_byggetid <= 0 or v_byggetid > 520 then
     return jsonb_build_object('ok', false, 'feil', 'Oppgi byggetid i uker.');
   end if;
@@ -714,20 +869,20 @@ begin
   end if;
 
   insert into tilbud (invitasjon_id, anbud_id, eier, firmanavn, orgnr, kontakt, telefon, epost,
-                      priser, forbehold, forbehold_bygg, byggetid_uker, oppstart, timepris, bekreftet, sum_eks_mva)
+                      priser, forbehold, forbehold_bygg, byggetid_uker, fremdrift, oppstart, timepris, bekreftet, sum_eks_mva)
   values (inv.id, a.id, a.eier, btrim(p_tilbud->>'firmanavn'), v_orgnr, btrim(p_tilbud->>'kontakt'),
           nullif(btrim(p_tilbud->>'telefon'), ''), nullif(btrim(p_tilbud->>'epost'), ''),
-          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_oppstart, v_timepris, true, total)
+          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_fremdrift, v_oppstart, v_timepris, true, total)
   on conflict (invitasjon_id) do update set
     firmanavn = excluded.firmanavn, orgnr = excluded.orgnr, kontakt = excluded.kontakt,
     telefon = excluded.telefon, epost = excluded.epost, priser = excluded.priser,
     forbehold = excluded.forbehold, forbehold_bygg = excluded.forbehold_bygg,
-    byggetid_uker = excluded.byggetid_uker, oppstart = excluded.oppstart, timepris = excluded.timepris,
+    byggetid_uker = excluded.byggetid_uker, fremdrift = excluded.fremdrift, oppstart = excluded.oppstart, timepris = excluded.timepris,
     bekreftet = excluded.bekreftet, sum_eks_mva = excluded.sum_eks_mva,
     levert = now(), antall_innsendinger = tilbud.antall_innsendinger + 1
   returning tilbud.levert into v_levert;
 
-  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'levert', v_levert,
+  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'byggetid_uker', v_byggetid, 'levert', v_levert,
     'kvittering', upper(substr(md5(inv.id::text || v_levert::text), 1, 8)));
 end $$;
 
@@ -744,6 +899,8 @@ grant  execute on function public.leverandor_send(text, jsonb) to anon, authenti
 revoke execute on function public.leverandor_sporsmal(text, text) from public;
 grant  execute on function public.leverandor_sporsmal(text, text) to anon, authenticated;
 revoke execute on function public.sporsmal_stengt(public.anbud) from public, anon;
+revoke execute on function public.vedlegg_for_kode(text) from public, anon, authenticated;
+grant  execute on function public.vedlegg_for_kode(text) to service_role;
 
 -- ---------------------------------------------------------------------
 -- Årsoversikt: én rad per anbud, klar for besparelse per år.
