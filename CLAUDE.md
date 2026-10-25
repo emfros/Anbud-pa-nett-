@@ -11,6 +11,8 @@ Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører g
 
 ## Regler
 
+0. **Enkelt først.** Portalen skal være enkel å bruke, gi Storebrand nok analyse og innsikt, og gi god informasjon til forsikringstaker. Før du bygger noe nytt, svar på tre spørsmål: Hvem bruker det, og hvor ofte? Blir det færre eller flere klikk? Hvilket av de tre målene hjelper det? Brukes noe sjelden, skal det være skjult eller av som standard. Hjelper det ingen av målene, lar vi det være.
+
 1. **Hold oppskriften oppdatert.** Når en endring påvirker oppsett, innlogging, database, sikkerhet eller hvordan siden brukes, oppdaterer du `LES-MEG.md` i samme branch og i samme omgang. Endrer du databasen, oppdaterer du `oppsett.sql` og tabellen «Hva som beskytter dataene» i `LES-MEG.md`.
 2. **Ikke jobb direkte på `main`.** Bruk en branch. `main` er den gjeldende versjonen og endres bare ved merge.
 3. **Logikken i `index.html` og `oppsett.sql` hører sammen.** Regler som sjekkes i nettsiden (frist, org.nr, sum, tildeling) skal også sjekkes i databasen. Databasen er den som bestemmer.
@@ -25,7 +27,8 @@ Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører g
 12. **To innganger:** Forsiden er bare for leverandører (kodefelt). Intern innlogging ligger på `#intern`. Ikke legg innloggingsknapp på forsiden.
 13. **Vedlegg:** Bøtta `vedlegg` er alltid lukket (aldri `public`). Stien er `<anbud-id>/<tilfeldig>-<filnavn>`, og tilgangen følger `kan_se_anbud` via `vedlegg_sti_ok`. Leverandører får aldri stien, bare lenker fra Edge Function. Etter utsending kan vedlegg bare fjernes (`fjernet` settes), ikke slettes (låst i `vedlegg_vakt`). Grensene (20 MB, filtyper, 30 per anbud) står både på bøtta, i `vedlegg_vakt` og i `index.html` (`MAKS_FIL`, `FILTYPER`, `MAKS_VEDLEGG`), og må stemme.
 14. **Fremdriftsplan:** Fasene i `FASER` (index.html) må være de samme, i samme rekkefølge, som lista i `leverandor_send` (oppsett.sql). Når `krev_fremdrift` er på, regnes byggetiden ut fra planen i databasen, og tallet fra nettleseren brukes ikke. `renPlan` i nettsiden følger de samme reglene. `krev_fremdrift` låses ved utsending (i `anbud_vakt`).
-15. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud, laster opp vedlegg og lager kode, leverandør stiller spørsmål, fyller ut fremdriftsplan og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
+15. **Status til forsikringstaker:** Statusfilen (`vStatus`) skal aldri vise priser, kalkyle, besparelse eller andre leverandører enn den som har fått oppdraget. Kundens navn finnes ikke i portalen. Skriv for en privatperson: enkle ord, ingen fagord.
+16. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud, laster opp vedlegg og lager kode, leverandør stiller spørsmål, fyller ut fremdriftsplan og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 
