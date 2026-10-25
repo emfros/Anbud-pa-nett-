@@ -140,6 +140,10 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 
 **Trekk tilbake invitasjon** stenger koden med en gang. Du får et spørsmål før det skjer. Leverandører som allerede har levert, kan ikke trekkes tilbake.
 
+**Lag ny kode** brukes når en leverandør har mistet koden. Den gamle koden slutter å virke med en gang. Tilbud og spørsmål de allerede har sendt, blir liggende. Du får en ferdig e-post med den nye koden, akkurat som ved invitasjon.
+
+**Hvorfor ser jeg bare de fire siste tegnene i koden?** Koden lagres aldri i databasen, bare et fingeravtrykk av den (en hash). Portalen kan sjekke om en kode er riktig, men ikke regne ut selve koden. Slik kan ingen hos Storebrand, eller noen som får tak i databasen, levere eller endre tilbud i en leverandørs navn.
+
 **Hvorfor sender ikke portalen selv?** En e-post med kode fra et ukjent domene som sier at den er fra Storebrand, ser ut som svindel og havner ofte i søppelposten. Skal portalen sende selv, bør det skje fra en Storebrand-adresse, og det krever IT.
 
 ## Spørsmål og svar
@@ -174,6 +178,7 @@ Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre 
 | Takstmann ser besparelser | Årsoversikten er tom for alle andre enn admin. |
 | Noen gir seg selv admin | Bare admin kan endre roller. Nye brukere starter som «Venter på tilgang». Det må alltid finnes minst én admin. |
 | Tidligere takstmann logger inn | Sett rollen til «Sperret». Da ser de ingenting. |
+| Noen gir seg ut for å være leverandør | Koden lagres bare som fingeravtrykk. Ingen kan lese den i databasen, heller ikke admin. Mister leverandøren koden, lager du en ny. |
 | E-post går til feil leverandør | Ingenting sendes automatisk. Du ser hver e-post før den sendes, og sender den selv. |
 | Leverandør får vite hvem som spurte | Leverandørene ser bare den publiserte teksten, aldri hvem som spurte. Du kan skrive om spørsmålet før du publiserer. |
 | Svar endres i ettertid | Publiserte svar og avklaringer kan ikke endres eller slettes, heller ikke av deg. |
@@ -185,8 +190,8 @@ Brukerne og rollene deres blir stående. Det er bare første gang du må gjøre 
 
 ## Hva som er testet – og hva som ikke er det
 
-- **Databasen:** kjørt i ekte Postgres med 117 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar og utsending. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
+- **Databasen:** kjørt i ekte Postgres med 124 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending og ny kode. Alle bestått.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging og tofaktor). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen

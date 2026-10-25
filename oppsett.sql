@@ -36,6 +36,7 @@ drop function if exists public.er_innlogget() cascade;
 drop function if exists public.min_rolle() cascade;
 drop function if exists public.profil_vakt() cascade;
 drop function if exists public.lag_invitasjon(uuid, text, text);
+drop function if exists public.ny_kode(uuid);
 drop function if exists public.leverandor_hent(text);
 drop function if exists public.leverandor_send(text, jsonb);
 drop function if exists public.anbud_vakt();
@@ -195,6 +196,7 @@ create table public.invitasjon (
   kode_hash   text not null unique,
   kode_slutt  text not null,           -- siste 4 tegn, så du kjenner igjen koden
   sendt       timestamptz,             -- når saksbehandler markerte e-posten som sendt (portalen sender aldri selv)
+  kode_fornyet timestamptz,            -- når det sist ble laget ny kode
   sist_aapnet timestamptz,
   opprettet   timestamptz not null default now()
 );
@@ -406,6 +408,37 @@ begin
           encode(sha256(convert_to(raa, 'UTF8')), 'hex'), substr(raa, 13, 4))
   returning id into ny_id;
   return jsonb_build_object('id', ny_id, 'kode', kode);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- Ny kode til en leverandør som har mistet den. Den gamle slutter å virke
+-- med en gang. Tilbud og spørsmål som allerede er levert, blir liggende.
+-- Koden vises én gang – bare hashen lagres, som før.
+-- ---------------------------------------------------------------------
+
+create function public.ny_kode(p_invitasjon uuid)
+returns jsonb
+language plpgsql security invoker as $$
+declare raa text; kode text; st text; oppdatert uuid;
+begin
+  if not public.er_innlogget() then
+    raise exception 'Logg inn med tofaktor først.';
+  end if;
+  select a.status into st from public.anbud a join public.invitasjon i on i.anbud_id = a.id where i.id = p_invitasjon;
+  if st is distinct from 'utsendt' then
+    raise exception 'Anbudet er ikke åpent. Ny kode kan ikke lages.';
+  end if;
+  raa  := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16));
+  kode := substr(raa,1,4) || '-' || substr(raa,5,4) || '-' || substr(raa,9,4) || '-' || substr(raa,13,4);
+  update public.invitasjon
+     set kode_hash = encode(sha256(convert_to(raa, 'UTF8')), 'hex'), kode_slutt = substr(raa, 13, 4),
+         kode_fornyet = now(), sendt = null
+   where id = p_invitasjon
+  returning id into oppdatert;
+  if oppdatert is null then
+    raise exception 'Fant ikke invitasjonen.';
+  end if;
+  return jsonb_build_object('id', oppdatert, 'kode', kode);
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -704,6 +737,8 @@ revoke execute on function public.lag_invitasjon(uuid, text, text) from public, 
 revoke execute on function public.leverandor_hent(text) from public;
 revoke execute on function public.leverandor_send(text, jsonb) from public;
 grant  execute on function public.lag_invitasjon(uuid, text, text) to authenticated;
+revoke execute on function public.ny_kode(uuid) from public, anon;
+grant  execute on function public.ny_kode(uuid) to authenticated;
 grant  execute on function public.leverandor_hent(text) to anon, authenticated;
 grant  execute on function public.leverandor_send(text, jsonb) to anon, authenticated;
 revoke execute on function public.leverandor_sporsmal(text, text) from public;
