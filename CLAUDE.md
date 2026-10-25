@@ -1,11 +1,11 @@
 # Anbudsportal – instrukser til Claude
 
-Nettside der Storebrand lager anbud på byggskader, leverandører gir pris med en kode, og saksbehandler sammenligner tilbud og ser besparelse per år.
+Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører gir pris med en kode, og Storebrand sammenligner tilbud, tildeler og ser besparelse per år.
 
 ## Filene
 
 - `index.html` – hele nettsiden i én fil. Kjører som demo når `SUPABASE_URL` og `SUPABASE_ANON_KEY` øverst i skriptet er tomme.
-- `oppsett.sql` – databasen i Supabase: tabeller, tilgangsregler (RLS) og funksjonene leverandørene kaller.
+- `oppsett.sql` – databasen i Supabase: tabeller, tilgangsregler (RLS) og de tre funksjonene leverandørene kaller (hent, send tilbud, still spørsmål).
 - `LES-MEG.md` – oppskriften for å sette opp alt, skrevet for Emil.
 
 ## Regler
@@ -17,7 +17,12 @@ Nettside der Storebrand lager anbud på byggskader, leverandører gir pris med e
 5. **Bare oppdiktede data** til IT i Storebrand har godkjent løsningen.
 6. **Utseende:** Storebrand-layout (røde farger, Schibsted Grotesk innebygd i filen, Storebrand-logo). Bare lyst tema. Tabelltall (`tabular-nums`) brukes bare på kronebeløp, fordi fonten ellers gjør punktum og komma brede.
 7. **Filen skal fungere alene.** Behold `<!doctype html>` og `<meta charset="utf-8">` øverst, ellers blir siden blank når den åpnes som fil i Safari.
-8. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør leverer, saksbehandler tildeler, årsoversikt) på mobil- og PC-bredde, uten feil i konsollen.
+8. **Felt som må stemme overens:** `ANBUD_FELT` i `index.html` må ha de samme feltene som tabellen `anbud` i `oppsett.sql`. Feltene som kan endres etter utsending (`ENDRES_ETTER_UTSENDING`) må stemme med låsen i `anbud_vakt`. De faste kravene (`FASTE_KRAV`) og standard tildelingsregel (`STD_TILDELING`) ligger i `index.html`.
+9. **Spørsmål og svar:** Leverandørene må aldri få se hvem som spurte, eller ubesvarte spørsmål fra andre. Publiserte svar kan ikke endres eller slettes (låst i `sporsmal_vakt`).
+10. **E-post:** Portalen sender aldri e-post selv. Invitasjoner forhåndsvises og åpnes i saksbehandlerens eget e-postprogram (mailto), én e-post per leverandør. Ikke legg inn automatisk utsending uten at Emil og IT har bestemt det.
+11. **Roller:** `admin` (Storebrand) ser alt, tildeler og gir roller. `takstmann` (intern eller ekstern) ser bare egne anbud, anbefaler men tildeler ikke, og ser aldri årsoversikt eller besparelser. Rollene håndheves i databasen (`min_rolle`, `er_admin`, `kan_se_anbud`), ikke bare i nettsiden. Tabellen `profil` slettes aldri av `oppsett.sql`.
+12. **To innganger:** Forsiden er bare for leverandører (kodefelt). Intern innlogging ligger på `#intern`. Ikke legg innloggingsknapp på forsiden.
+13. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og kode, leverandør stiller spørsmål og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 
