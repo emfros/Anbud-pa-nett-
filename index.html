@@ -472,6 +472,7 @@ function supabaseApi(sb) {
     async slettInvitasjon(id) { ut(await sb.from('invitasjon').delete().eq('id', id)); },
     async merkSendt(id) { ut(await sb.from('invitasjon').update({ sendt: new Date().toISOString() }).eq('id', id)); },
     async nyKode(id) { return ut(await sb.rpc('ny_kode', { p_invitasjon: id })); },
+    async oppdaterEpost(id, epost) { ut(await sb.from('invitasjon').update({ epost }).eq('id', id)); },
     async aarsoversikt() { return ut(await sb.from('aarsoversikt').select('*')); },
     async levHent(kode) { return ut(await sb.rpc('leverandor_hent', { p_kode: kode })); },
     async levSend(kode, t) { return ut(await sb.rpc('leverandor_send', { p_kode: kode, p_tilbud: t })); }
@@ -658,6 +659,7 @@ function demoApi() {
       const k = lagKode(); const i = { id: nyId('i'), anbud_id: anbudId, leverandor: trim(navn), epost: trim(epost) || null, kode: ren(k), kode_slutt: ren(k).slice(-4), sendt: null, sist_aapnet: null, opprettet: new Date().toISOString() };
       db.inv.push(i); return { id: i.id, kode: k }; },
     async merkSendt(id) { const i = db.inv.find(x => x.id === id); if (i) i.sendt = new Date().toISOString(); },
+    async oppdaterEpost(id, epost) { const i = db.inv.find(x => x.id === id); hent(i.anbud_id); i.epost = epost; },
     async nyKode(id) { await vent(); const i = db.inv.find(x => x.id === id); if (!i) throw new Error('Fant ikke invitasjonen.');
       const a = hent(i.anbud_id); if (a.status !== 'utsendt') throw new Error('Anbudet er ikke åpent. Ny kode kan ikke lages.');
       const k = lagKode(); Object.assign(i, { kode: ren(k), kode_slutt: ren(k).slice(-4), kode_fornyet: new Date().toISOString(), sendt: null });
@@ -1186,12 +1188,14 @@ function vAnbud() {
     </tbody></table></div>`;
 
   const invRader = inv.map(v => { const lev = t.find(x => x.invitasjon_id === v.id);
-    return `<tr><td>${esc(v.leverandor)}${v.epost ? `<br><span class="small muted">${esc(v.epost)}</span>` : ''}</td><td class="mono small">••••-${esc(v.kode_slutt)}</td>
+    return `<tr><td>${esc(v.leverandor)}<br>${v.epost ? `<span class="small muted">${esc(v.epost)}</span>` : '<span class="small qa-varsel">Ingen e-post</span>'}</td><td class="mono small">••••-${esc(v.kode_slutt)}</td>
       <td class="small">${lev ? `<span class="pos">Levert</span>` : v.sist_aapnet ? `Åpnet ${dato(v.sist_aapnet)}` : v.sendt ? `Sendt ${dato(v.sendt)}` : '<span class="qa-varsel">Ikke sendt</span>'}
         ${v.kode_fornyet ? `<br><span class="muted">Ny kode ${dato(v.kode_fornyet)}${!v.sendt ? ' · <span class="qa-varsel">ikke sendt</span>' : ''}</span>` : ''}</td>
       <td><div class="row" style="gap:4px;justify-content:flex-end">${!avsluttet && !lev && !v.sendt && !v.sist_aapnet ? `<button class="small" data-act="merkSendt" data-id="${v.id}">Marker som sendt</button>` : ''}
         ${!avsluttet && S.bekreft === 'nyKode:' + v.id ? `<div class="confirm liten"><span>Lage ny kode til ${esc(v.leverandor)}? Den gamle slutter å virke med en gang. Det de har levert, blir liggende.</span>
-          <div class="row"><button class="pri small" data-act="nyKode" data-id="${v.id}">${v.epost ? 'Ja, lag ny kode og åpne e-post' : 'Ja, lag ny kode'}</button><button class="small" data-act="avbryt">Avbryt</button></div></div>`
+          <label class="f">Send til e-post<input id="nyKodeEpost" type="email" value="${esc(v.epost || '')}" placeholder="post@firma.no"></label>
+          <div class="row"><button class="pri small" data-act="nyKode" data-id="${v.id}">Ja, lag ny kode og åpne e-post</button><button class="small" data-act="avbryt">Avbryt</button></div>
+          <span class="hint">Uten e-post får du teksten til å kopiere i stedet.</span></div>`
         : !avsluttet && !S.bekreft?.endsWith(':' + v.id) ? `<button class="ghost small" data-act="spørNyKode" data-id="${v.id}">Lag ny kode</button>` : ''}
         ${!avsluttet && !lev && S.bekreft !== 'nyKode:' + v.id ? (S.bekreft === 'slettInv:' + v.id ? `<div class="confirm liten"><span>Trekke tilbake invitasjonen? Koden slutter å virke med en gang.</span>
           <div class="row"><button class="danger small" data-act="slettInv" data-id="${v.id}">Ja, trekk tilbake</button><button class="small" data-act="avbryt">Avbryt</button></div></div>`
@@ -1429,6 +1433,9 @@ document.addEventListener('click', e => {
     spørNyKode: () => { S.bekreft = 'nyKode:' + id; keep(); },
     nyKode: () => jobb(async () => {
       const v = S.aktiv.invitasjoner.find(x => x.id === id), a = S.aktiv.anbud;
+      const ep = trim($('#nyKodeEpost')?.value);
+      if (ep && !epostOk(ep)) throw new Error('E-postadressen ser ikke riktig ut.');
+      if (ep !== trim(v.epost)) { await api.oppdaterEpost(id, ep || null); v.epost = ep || null; }
       const r = await api.nyKode(id); S.bekreft = null; S.invUtkast = null;
       const emne = 'Ny kode: ' + epostEmne(a), tekst = epostTekst(a, '', true).split(KODE).join(r.kode);
       S.nyKode = { ...r, navn: v.leverandor, epost: v.epost, emne, tekst, fornyet: true };
