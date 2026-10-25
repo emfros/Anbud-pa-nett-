@@ -142,8 +142,9 @@ Når du sammenligner, ser du byggetid, oppstart, timepris, forbehold og fremdrif
 - **En fast mal for hele saken**, ikke per fag. Seks faser: rigg og tildekking, riving og sanering, uttørking og venting, oppbygging, overflater, rydding og overlevering.
 - **Leverandøren fyller inn to tall per fase:** hvilken uke fasen starter, og hvor mange uker den tar. Uke 1 er uken de starter. Faser som ikke er aktuelle, står tomme. Faser kan gå samtidig.
 - **Byggetiden regnes ut fra planen**, både i nettsiden og i databasen. Leverandøren skriver den ikke selv, så plan og byggetid kan ikke vise forskjellige tall.
-- **En tidslinje tegnes automatisk** mens de fyller ut. Uttørking og venting vises med striper, så du ser hvor tiden går med til venting.
-- **Hos deg** står planene under hverandre med samme skala. Da ser du med en gang hvem som blir ferdig først.
+- **En tidslinje tegnes automatisk** mens de fyller ut. Under hvert ukenummer står datoen uken starter, regnet fra tidligste oppstart. Uttørking og venting vises med striper, så du ser hvor tiden går med til venting.
+- **Ferdig ca.** regnes ut fra oppstart og byggetid. Det står hos leverandøren, i kvitteringen og på tilbudskortene hos deg.
+- **Hos deg** står planene på samme kalender, ut fra når hver leverandør kan starte. En som tar 4 uker og starter neste uke, kan bli ferdig før en som tar 3 uker og starter om tre uker. Den som blir ferdig først, får merket «Ferdig først».
 - **Påkrevd som standard.** Du kan krysse det av på steg 4 i små saker. Da skriver leverandøren bare byggetid i uker, som før. Valget låses når anbudet sendes ut.
 
 **Legg i kalender:** Ved befaring og tilbudsfrist er det en knapp som laster ned en kalenderfil (.ics). Den åpnes i Outlook, iPhone, Google Kalender og de fleste andre kalendere, med påminnelse dagen før. Endres befaringen senere, må leverandøren trykke på knappen igjen. Da oppdateres avtalen i stedet for at det blir to.
