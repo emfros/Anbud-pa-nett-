@@ -176,7 +176,7 @@ create table public.anbud (
   tildelingsregel text not null default
     'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.',
   krev_fremdrift boolean not null default true,     -- Leverandøren må fylle ut fremdriftsplan
-  -- Ekstra krav som er krysset av (bare i saker over 300 000 kr). Teksten lagres, ikke bare et nummer.
+  -- Presiseringer takstmannen har krysset av for. Teksten lagres, ikke bare et nummer.
   standardtekster jsonb not null default '[]'::jsonb,
   status        text not null default 'utkast'
                 check (status in ('utkast','utsendt','tildelt','avlyst')),
@@ -294,14 +294,14 @@ create function public.anbud_vakt() returns trigger
 language plpgsql as $$
 declare laveste numeric; valgt numeric;
 begin
-  -- Standardtekster (ekstra krav): en liste med maks 10 korte tekster
+  -- Presiseringer: en liste med maks 30 korte tekster
   if jsonb_typeof(new.standardtekster) is distinct from 'array' then
-    raise exception 'Ekstra krav har feil format.';
+    raise exception 'Presiseringene har feil format.';
   end if;
-  if jsonb_array_length(new.standardtekster) > 10
+  if jsonb_array_length(new.standardtekster) > 30
      or exists (select 1 from jsonb_array_elements(new.standardtekster) x
                 where jsonb_typeof(x) <> 'string' or length(x #>> '{}') > 500) then
-    raise exception 'Ekstra krav har feil format.';
+    raise exception 'Presiseringene har feil format.';
   end if;
 
   if tg_op = 'INSERT' then
@@ -361,9 +361,6 @@ begin
   if old.status = 'utkast' and new.status = 'utsendt' then
     if new.kalkyle_sum is null or jsonb_array_length(new.bygg) = 0 then
       raise exception 'Legg inn poster og kalkyle før du sender ut.';
-    end if;
-    if jsonb_array_length(new.standardtekster) > 0 and new.kalkyle_sum <= 300000 then
-      raise exception 'Ekstra krav kan bare brukes i saker over kr 300 000.';
     end if;
     if btrim(new.tittel) = '' or btrim(new.beskrivelse) = ''
        or btrim(new.takst_navn) = '' or btrim(new.takst_epost) = '' or new.vedstaelse is null then
