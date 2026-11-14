@@ -129,7 +129,7 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
 3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
 4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med. Her krysser du også av for om leverandøren må fylle ut fremdriftsplan. Det er på som standard.
-5. **Bygninger og poster** – mengder per post og din kalkyle.
+5. **Bygninger og poster** – mengder per post og din kalkyle. Er kalkylen over 300 000 kr (eks. mva), dukker det opp **ekstra krav** du kan krysse av for: NS 8406, garanti, skatteattest og HMS, oppstartsmøte og FDV-dokumentasjon. Leverandørene ser bare de du krysser av. Tekstene endrer du i `STANDARDTEKSTER` øverst i `index.html`.
 6. **Vedlegg** – takstrapport, bilder og andre dokumenter (se «Vedlegg» under).
 7. **Tildeling** – hvordan leverandør velges.
 
@@ -258,6 +258,7 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Noen laster opp en farlig eller stor fil | Bøtta tar bare PDF, bilder, Word og Excel, maks 20 MB. Supabase avviser resten, uansett hva nettsiden sier. |
 | Vedlegg forsvinner sporløst etter utsending | Etter utsending kan vedlegg bare fjernes, ikke slettes. Det står igjen når det ble lagt til og fjernet. |
 | Leverandør overser vedlegg som kom etter utsending | Rød boks øverst på siden, rød ramme på filene, og de må bekrefte at de har sett dem før de sender. |
+| Ekstra krav brukt i små saker, eller endret etter utsending | Databasen godtar ekstra krav bare når kalkylen er over 300 000 kr, og låser dem når anbudet sendes ut. |
 | Byggetid og fremdriftsplan stemmer ikke | Byggetiden regnes ut fra planen i databasen. Tallet fra nettleseren brukes ikke. |
 | Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 

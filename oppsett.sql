@@ -176,6 +176,8 @@ create table public.anbud (
   tildelingsregel text not null default
     'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.',
   krev_fremdrift boolean not null default true,     -- Leverandøren må fylle ut fremdriftsplan
+  -- Ekstra krav som er krysset av (bare i saker over 300 000 kr). Teksten lagres, ikke bare et nummer.
+  standardtekster jsonb not null default '[]'::jsonb,
   status        text not null default 'utkast'
                 check (status in ('utkast','utsendt','tildelt','avlyst')),
   -- [{id, navn, poster:[{id, fag, beskrivelse, mengde, enhet}]}]
@@ -292,6 +294,16 @@ create function public.anbud_vakt() returns trigger
 language plpgsql as $$
 declare laveste numeric; valgt numeric;
 begin
+  -- Standardtekster (ekstra krav): en liste med maks 10 korte tekster
+  if jsonb_typeof(new.standardtekster) is distinct from 'array' then
+    raise exception 'Ekstra krav har feil format.';
+  end if;
+  if jsonb_array_length(new.standardtekster) > 10
+     or exists (select 1 from jsonb_array_elements(new.standardtekster) x
+                where jsonb_typeof(x) <> 'string' or length(x #>> '{}') > 500) then
+    raise exception 'Ekstra krav har feil format.';
+  end if;
+
   if tg_op = 'INSERT' then
     if new.status <> 'utkast' then
       raise exception 'Et nytt anbud må starte som utkast.';
@@ -332,10 +344,10 @@ begin
   -- Vilkårene leverandørene har priset etter, låses også. Frister, befaring og kontaktinfo kan endres.
   if old.status <> 'utkast' and
      (new.skadenr, new.adresse, new.skadetype, new.tittel, new.beskrivelse, new.saerlige_forhold,
-      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel, new.krev_fremdrift)
+      new.vedstaelse, new.onsket_ferdig, new.tildelingsregel, new.krev_fremdrift, new.standardtekster)
      is distinct from
      (old.skadenr, old.adresse, old.skadetype, old.tittel, old.beskrivelse, old.saerlige_forhold,
-      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel, old.krev_fremdrift) then
+      old.vedstaelse, old.onsket_ferdig, old.tildelingsregel, old.krev_fremdrift, old.standardtekster) then
     raise exception 'Beskrivelse og vilkår er låst etter at anbudet er sendt ut.';
   end if;
 
@@ -349,6 +361,9 @@ begin
   if old.status = 'utkast' and new.status = 'utsendt' then
     if new.kalkyle_sum is null or jsonb_array_length(new.bygg) = 0 then
       raise exception 'Legg inn poster og kalkyle før du sender ut.';
+    end if;
+    if jsonb_array_length(new.standardtekster) > 0 and new.kalkyle_sum <= 300000 then
+      raise exception 'Ekstra krav kan bare brukes i saker over kr 300 000.';
     end if;
     if btrim(new.tittel) = '' or btrim(new.beskrivelse) = ''
        or btrim(new.takst_navn) = '' or btrim(new.takst_epost) = '' or new.vedstaelse is null then
@@ -766,7 +781,8 @@ begin
       'takst_navn', a.takst_navn, 'takst_firma', a.takst_firma, 'takst_epost', a.takst_epost, 'takst_tlf', a.takst_tlf,
       'befaring', a.befaring, 'oppmote', a.oppmote, 'frist_sporsmal', a.frist_sporsmal,
       'frist', a.frist, 'vedstaelse', a.vedstaelse, 'onsket_ferdig', a.onsket_ferdig,
-      'tildelingsregel', a.tildelingsregel, 'krev_fremdrift', a.krev_fremdrift, 'bygg', a.bygg),
+      'tildelingsregel', a.tildelingsregel, 'krev_fremdrift', a.krev_fremdrift,
+      'standardtekster', a.standardtekster, 'bygg', a.bygg),
     'tilbud', case when t.invitasjon_id is null then null else jsonb_build_object(
       'firmanavn', t.firmanavn, 'orgnr', t.orgnr, 'kontakt', t.kontakt,
       'telefon', t.telefon, 'epost', t.epost, 'priser', t.priser,
