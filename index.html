@@ -371,6 +371,8 @@ table.brukere tr.venter td { background: var(--warn-50) }
 }
 @media (max-width: 520px) {
   h1 { font-size: 25px }
+  .statusdok { padding: 22px 18px; border-radius: 16px }
+  .st-sak { text-align: left }
   .panel { padding: 20px 16px; border-radius: 16px }
   .item { grid-template-columns: 1fr; padding: 14px 16px }
   .item .r { text-align: left }
@@ -383,8 +385,35 @@ table.brukere tr.venter td { background: var(--warn-50) }
   .toast { animation: up .24s cubic-bezier(.22,.61,.36,1) } @keyframes up { from { transform: translate(-50%, 8px); opacity: 0 } }
   .offer, .item, button { transition: background-color .12s, border-color .12s }
 }
+/* statusfil til forsikringstaker */
+.statusdok { background: var(--n0); border: 1px solid var(--n200); border-radius: 20px; padding: 36px; display: grid; gap: 22px; max-width: 820px; width: 100%; margin: 0 auto; box-shadow: var(--sh); color: var(--n800) }
+.statusdok .st-topp { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid var(--red-600); padding-bottom: 16px }
+.statusdok .st-topp img { height: 22px; display: block }
+.statusdok h1 { font-size: 26px; margin: 10px 0 0 }
+.statusdok h2 { font-size: 16px; margin: 0 0 8px; color: var(--n900) }
+.statusdok section { display: grid; gap: 6px }
+.st-steg { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px }
+.st-steg li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: start; padding: 6px 0 }
+.st-steg .prikk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--n300); background: var(--n0); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--n0); margin-top: 1px }
+.st-steg li.ferdig .prikk { background: var(--ok); border-color: var(--ok) }
+.st-steg li.naa .prikk { background: var(--red-600); border-color: var(--red-600) }
+.st-steg li.naa strong { color: var(--red-700) }
+.st-steg li.senere { color: var(--n500) }
+.st-steg span.small { display: block; color: var(--n600) }
+.st-naa { background: var(--red-50); border-left: 4px solid var(--red-600); padding: 14px 16px; border-radius: 0 12px 12px 0; display: grid; gap: 6px }
+.st-hilsen { white-space: pre-line; padding: 12px 16px; background: var(--n50); border-radius: 12px }
+.st-hilsen:empty { display: none }
+.st-fakta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 16px }
+.st-fakta div span { display: block; font-size: 12px; color: var(--n500) }
+.st-fot { font-size: 12px; color: var(--n500); border-top: 1px solid var(--n200); padding-top: 12px }
+.st-sak { text-align: right }
+.st-verktoy { max-width: 820px; width: 100%; margin: 0 auto; display: grid; gap: 12px }
 @media print {
   .bar, .noprint, .toast { display: none !important }
+  .statusdok { border: 0; box-shadow: none; padding: 0; max-width: none }
+  .statusdok, .statusdok * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+  .statusdok section, .tl { break-inside: avoid }
+  @page { margin: 16mm }
   body, .panel, .receipt { background: #fff; border: 0; box-shadow: none }
   main { padding: 0 }
 }
@@ -944,7 +973,7 @@ async function jobb(fn) { try { S.feil = []; await fn(); } catch (e) { S.feil = 
 
 function render() {
   renderBar();
-  const v = { start: vStart, login: vLogin, mfa: vMfa, ingen: vIngenTilgang, liste: vListe, rediger: vRediger, anbud: vAnbud, aar: vAar, brukere: vBrukere, lev: vLev, kvittering: vKvittering }[S.view] || vStart;
+  const v = { start: vStart, login: vLogin, mfa: vMfa, ingen: vIngenTilgang, liste: vListe, rediger: vRediger, anbud: vAnbud, aar: vAar, brukere: vBrukere, lev: vLev, kvittering: vKvittering, status: vStatus }[S.view] || vStart;
   $('#app').innerHTML = v();
   window.scrollTo?.(0, S._scroll || 0); S._scroll = 0;
 }
@@ -953,7 +982,7 @@ function renderBar() {
   const p = meg();
   $('#bar').innerHTML = `<div class="logo"><img src="${LOGO}" alt="Storebrand"><span>Anbudsportal</span></div>${api.demo ? '<span class="tag">Demo</span>' : ''}
     ${intern ? `<span class="bruker">${esc(p.navn || p.epost)} · ${ROLLER[p.rolle]}${p.rolle === 'takstmann' && p.type ? ` (${p.type})` : ''}</span>` : ''}
-    <nav>${intern ? `<button class="ghost ${['liste', 'anbud', 'rediger'].includes(S.view) ? 'on' : ''}" data-act="liste">Anbud</button>
+    <nav>${intern ? `<button class="ghost ${['liste', 'anbud', 'rediger', 'status'].includes(S.view) ? 'on' : ''}" data-act="liste">Anbud</button>
       ${erAdmin() ? `<button class="ghost ${S.view === 'aar' ? 'on' : ''}" data-act="aar">Årsoversikt</button>
       <button class="ghost ${S.view === 'brukere' ? 'on' : ''}" data-act="brukere">Brukere</button>` : ''}
       <button class="ghost" data-act="loggut">Logg ut</button>`
@@ -1380,6 +1409,61 @@ function vBrukere() {
 }
 
 /* ---------- anbud (utsendt / avsluttet) ---------- */
+/* ---------- statusfil til forsikringstaker (lagres som PDF) ----------
+   Ingen priser, ingen andre tilbud, ingen kalkyle. Kundens navn finnes ikke i portalen,
+   så saksbehandleren skriver det i e-posten selv. */
+function vStatus() {
+  const { anbud: a, tilbud: t } = S.aktiv;
+  const valgt = a.status === 'tildelt' ? t.find(x => x.invitasjon_id === a.tildelt_invitasjon) : null;
+  const naa = new Date(), fristUte = new Date(a.frist) <= naa;
+  const befaringSenere = a.befaring && new Date(a.befaring) > naa;
+  const ferdig = valgt ? ferdigDag(valgt.oppstart, tall(valgt.byggetid_uker)) : null;
+  const p = meg() || {};
+  // Hvor i prosessen saken er: ferdig, nå eller senere
+  const steg = [
+    ['Skaden er vurdert', `Takstmann: ${esc(a.takst_navn)}${trim(a.takst_firma) ? ', ' + esc(a.takst_firma) : ''}`, 'ferdig'],
+    ...(a.befaring ? [['Befaring med entreprenører', dato(a.befaring), befaringSenere ? 'naa' : 'ferdig']] : []),
+    ['Vi henter inn tilbud', `Tilbudsfrist ${dato(a.frist)}`, valgt || fristUte ? 'ferdig' : befaringSenere ? 'senere' : 'naa'],
+    ['Entreprenør velges', valgt ? esc(valgt.firmanavn) : 'Du får beskjed når det er klart', valgt ? 'ferdig' : fristUte ? 'naa' : 'senere'],
+    ['Arbeidet utføres', valgt ? `Kan starte fra ${datoDag(valgt.oppstart)}${ferdig ? `, ferdig ca. ${datoDag(ferdig)}` : ''}` : 'Datoer kommer når entreprenøren er valgt', valgt ? 'naa' : 'senere']];
+  const tekstNaa = valgt
+    ? `<strong>${esc(valgt.firmanavn)} skal gjøre jobben.</strong><span>De kontakter deg for å avtale oppstart. Har du spørsmål om selve arbeidet, kan du ringe dem direkte.</span>`
+    : fristUte
+      ? `<strong>Vi vurderer tilbudene nå.</strong><span>Tilbudsfristen har gått ut. Du får beskjed når vi har valgt entreprenør.</span>`
+      : `<strong>Vi henter inn tilbud fra flere entreprenører.</strong><span>Slik sikrer vi at jobben blir gjort riktig og til riktig pris. Tilbudsfristen er ${dato(a.frist)}. Når vi har valgt entreprenør, får du beskjed om hvem som skal gjøre jobben, og når de kan starte.</span>
+        ${befaringSenere ? `<span>Entreprenørene kommer på befaring <strong>${dato(a.befaring)}</strong>${trim(a.oppmote) ? ` (oppmøte: ${esc(a.oppmote)})` : ''}. Det er fint om du eller noen andre kan være til stede og låse dem inn.</span>` : ''}`;
+  const kontakt = [esc(p.navn || p.epost), esc(trim(p.firma) || 'Storebrand'), esc(p.telefon), trim(p.epost) ? esc(p.epost) : ''].filter(trim).join(' · ');
+  return `<div class="st-verktoy noprint">
+      <button class="link back" data-act="tilAnbud">← Tilbake til anbudet</button>
+      <div class="box info small">Dette er en oversikt du kan sende til forsikringstaker. Den har ingen priser og ingen andre tilbud. Kundens navn står ikke her. Skriv det i e-posten.</div>
+      <label class="f"><span>Personlig hilsen <em>(valgfritt)</em></span><textarea id="statusHilsen" rows="3" placeholder="For eksempel: Hei! Her er en oversikt over hvor saken din står.">${esc(S.statusHilsen || '')}</textarea></label>
+      <div class="row"><button class="pri" data-act="skrivUtStatus">Lagre som PDF</button><span class="hint">Velg «Lagre som PDF» i utskriftsvinduet.</span></div>
+    </div>
+    <article class="statusdok" id="statusdok">
+      <div class="st-topp"><div><img src="${LOGO}" alt="Storebrand"><h1>Status for skadesaken din</h1></div>
+        <div class="small st-sak">Skadenummer <strong>${esc(a.skadenr)}</strong><br>${esc(a.adresse)}<br>Oppdatert ${datoDag(naa.toISOString())}</div></div>
+      <div class="st-hilsen" id="statusHilsenVis">${esc(trim(S.statusHilsen || ''))}</div>
+      <div class="st-naa">${tekstNaa}</div>
+      <section><h2>Hvor saken står</h2>
+        <ol class="st-steg">${steg.map(([navn, info, st]) => `<li class="${st}"><span class="prikk" aria-hidden="true">${st === 'ferdig' ? '✓' : ''}</span>
+          <div><strong>${navn}</strong><span class="small">${info}</span></div></li>`).join('')}</ol></section>
+      ${valgt ? `<section><h2>Entreprenøren</h2><div class="st-fakta">
+          <div><span>Firma</span>${esc(valgt.firmanavn)}</div>
+          <div><span>Kontaktperson</span>${esc(valgt.kontakt)}</div>
+          ${trim(valgt.telefon) ? `<div><span>Telefon</span>${esc(valgt.telefon)}</div>` : ''}
+          ${trim(valgt.epost) ? `<div><span>E-post</span>${esc(valgt.epost)}</div>` : ''}
+          <div><span>Kan starte fra</span>${datoDag(valgt.oppstart)}</div>
+          ${ferdig ? `<div><span>Ferdig ca.</span>${datoDag(ferdig)}</div>` : ''}
+          <div><span>Byggetid</span>${uker(tall(valgt.byggetid_uker))}</div></div></section>
+        ${valgt.fremdrift?.faser?.length ? `<section><h2>Plan for arbeidet</h2>
+          ${tidslinje(valgt.fremdrift.faser.map(f => ({ ...f, start: Number(f.start), uker: Number(f.uker) })), { oppstart: valgt.oppstart })}
+          ${valgt.fremdrift.faser.some(f => f.id === 'torking') ? '<span class="small">«Uttørking og venting» betyr at det må tørke før arbeidet kan fortsette. Da skjer det lite på stedet, men rommet kan ikke brukes.</span>' : ''}</section>` : ''}` : ''}
+      <section><h2>Hva som skal gjøres</h2><strong>${esc(a.tittel)}</strong><p class="omfang" style="margin:0">${esc(a.beskrivelse)}</p></section>
+      <section><h2>Spørsmål om saken?</h2><span>Kontakt ${kontakt}</span></section>
+      <div class="st-fot">Datoene er foreløpige og kan endre seg, for eksempel hvis det tar lengre tid å tørke ut, eller hvis det dukker opp skjulte skader. Vi gir beskjed hvis noe endrer seg mye.</div>
+    </article>`;
+}
+
 /* ---------- fremdriftsplanene side om side (Storebrand og takstmann) ---------- */
 function vPlaner(a, sortert, inv) {
   const med = sortert.filter(x => x.fremdrift?.faser?.length).map(x => {
@@ -1497,6 +1581,8 @@ function vAnbud() {
       <div class="kpi"><span>Laveste tilbud</span><b>${kr(laveste)}</b>${laveste != null ? `<span>${pct(avvik(laveste))} mot kalkyle</span>` : ''}</div>
       <div class="kpi"><span>${a.status === 'utsendt' ? 'Frist' : 'Fristen var'}</span><b style="font-size:1rem">${dato(a.frist)}</b><span>${a.status === 'utsendt' ? igjen(a.frist) : ''}</span></div>
     </section>
+    ${['utsendt', 'tildelt'].includes(a.status) ? `<div class="row"><button data-act="status">Status til forsikringstaker (PDF)</button>
+      <span class="hint">En oversikt uten priser, som du kan sende til kunden.</span></div>` : ''}
     <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
       <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
     <section class="panel" id="vedlegg"><div class="steg-h"><h2>Vedlegg</h2><p class="sub">Takstrapport, bilder og andre dokumenter. Leverandørene ser disse.</p></div>
@@ -1777,6 +1863,10 @@ document.addEventListener('click', e => {
     spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
     fjernV: () => jobb(async () => { const { anbud, liste } = vedleggSted(); const v = liste.find(x => x.id === id);
       await api.fjernVedlegg(v, anbud.status); S.bekreft = null; S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Vedlegget er fjernet'); keep(); }),
+    status: () => { S.statusHilsen = ''; S.view = 'status'; S.feil = []; window.scrollTo(0, 0); render(); },
+    tilAnbud: () => { S.view = 'anbud'; render(); },
+    skrivUtStatus: () => { const tittel = document.title; document.title = `Status ${S.aktiv.anbud.skadenr}`;
+      window.addEventListener('afterprint', () => { document.title = tittel; }, { once: true }); window.print(); },
     tilVedlegg: () => document.getElementById('levVedlegg')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
     levLenker: () => { const el = document.getElementById('levVedlegg'); S.lev.lenker = null; S.lev.lenkeFeil = null; if (el) el.outerHTML = vVedleggLev(S.lev); hentLevLenker(); },
     nyttBygg: () => { S.utkast.bygg.push({ id: nyId('b'), navn: '', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }); keep(); },
@@ -1959,6 +2049,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'begr') { S.begrunnelse = t.value; return; }
   if (t.id === 'avklaring') { S.avklaring = t.value; return; }
+  if (t.id === 'statusHilsen') { S.statusHilsen = t.value; $('#statusHilsenVis').textContent = trim(t.value); return; }
   if (t.dataset.bu) { const b = S.brukere.find(x => x.id === t.dataset.bu); const u = S.brukerUtkast[b.id] ||= { ...b }; u[t.dataset.bf] = t.value;
     if (t.tagName === 'SELECT') keep(); else if (!document.querySelector(`[data-act="lagreBruker"][data-id="${b.id}"]`)) { const p = t.selectionStart; keep(); const el = document.querySelector(`[data-bu="${b.id}"][data-bf="${t.dataset.bf}"]`); el?.focus(); el?.setSelectionRange?.(p, p); } return; }
   if (t.id === 'invEmne') { S.invUtkast.emne = t.value; return; }

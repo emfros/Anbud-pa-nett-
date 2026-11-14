@@ -193,6 +193,18 @@ Under «Invitasjoner» ser du status for hver leverandør: ikke sendt, sendt, å
 - **Når saken er tildelt eller avlyst,** kan du ikke legge til flere vedlegg. Du kan fortsatt fjerne, for eksempel hvis noe ble lastet opp ved en feil.
 - **Personvern:** Ikke last opp bilder der personer kan kjennes igjen, og fjern kundens navn og telefon fra rapporter før du laster dem opp. Leverandørene ser alt som ligger der.
 
+## Status til forsikringstaker
+
+På et utsendt eller tildelt anbud er det en knapp: **Status til forsikringstaker (PDF)**. Den lager en oversikt du kan legge ved i en e-post til kunden.
+
+- **Før tildeling:** «Vi henter inn tilbud», med tilbudsfrist og eventuell befaring. Står befaringen foran, bes kunden om å være til stede eller låse inn.
+- **Etter tildeling:** hvem som skal gjøre jobben, kontaktperson, når de kan starte, ferdig ca., og fremdriftsplanen med datoer.
+- **Alltid:** hvor saken står (fem enkle steg), hva som skal gjøres, og hvem kunden kan kontakte. Det er den som er logget inn.
+- **Aldri:** priser, kalkyle, besparelse eller andre tilbud.
+- **Kundens navn** står ikke i filen, fordi portalen ikke har det. Skriv navnet i e-posten.
+- Du kan skrive en personlig hilsen øverst før du lagrer.
+- Trykk **Lagre som PDF**, og velg «Lagre som PDF» i utskriftsvinduet. Filen får navnet «Status SB-…».
+
 ## Har du allerede satt opp databasen?
 
 Kjør hele `oppsett.sql` på nytt i Supabase. Den lager tabellene på nytt med de nye feltene. **Alle anbud, tilbud og spørsmål blir slettet.** Det går fint så lenge du bare har testdata.
@@ -238,7 +250,7 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 
 - **Databasen:** kjørt i ekte Postgres med 165 tester av tilgangsreglene, rollene, de nye feltene, spørsmål og svar, utsending, ny kode, vedlegg (også tilgangen til selve filene) og fremdriftsplan. Alle bestått.
 - **Serverfunksjonen for vedlegg:** 12 tester. Den gir lenker bare ved riktig kode, lenkene varer i én time, og feilmeldingene røper ingen detaljer. Alle bestått.
-- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode, vedlegg (opplasting, dra og slipp, feil filtype, for stor fil, kategori, fjerning, visning og varsel hos leverandøren), fremdriftsplan (utfylling, utregning av byggetid, tidslinje, kvittering og sammenligning) og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
+- **Nettsiden:** klikket gjennom hele løpet i Chrome, på mobil- og PC-bredde, i demo-modus. Det gjelder også stegene, de nye leverandørfeltene, sammenligningen, spørsmål og svar, utsendingen av e-post, kalenderfilene, ny kode, vedlegg (opplasting, dra og slipp, feil filtype, for stor fil, kategori, fjerning, visning og varsel hos leverandøren), fremdriftsplan (utfylling, utregning av byggetid, tidslinje, kvittering og sammenligning), statusfil til forsikringstaker (før og etter tildeling, uten priser) og alle rollene: admin, ekstern og intern takstmann, og bruker uten tilgang.
 - **Ikke testet:** koblingen mot et ekte Supabase-prosjekt (innlogging, tofaktor, opplasting til bøtta og serverfunksjonen der). Koden følger Supabase sin dokumentasjon, men første oppkobling kan trenge en liten justering.
 
 ## Kjente begrensninger i demoen
