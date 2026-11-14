@@ -192,15 +192,21 @@ label.f.full, .grid2 .full { grid-column: 1 / -1 }
 
 /* anbudet slik leverandøren ser det */
 .fakta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 20px; padding-top: 16px; border-top: 1px solid var(--n200) }
-.fakta { display: grid; gap: 2px; min-width: 0 }
+.fakta { display: grid; gap: 2px; min-width: 0; align-content: start }
 .fakta > span { font-size: 13px; color: var(--n500) }
 .fakta b { font-weight: 600; color: var(--n900); overflow-wrap: anywhere }
 .omfang { white-space: pre-line; max-width: 70ch }
-details.vis-anbud > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap }
-details.vis-anbud > summary::-webkit-details-marker { display: none }
-details.vis-anbud > summary::after { content: "Vis"; margin-left: auto; font-size: 14px; font-weight: 600; color: var(--red-700) }
-details.vis-anbud[open] > summary::after { content: "Skjul" }
-details.vis-anbud:not([open]) { gap: 0 }
+details.vis-anbud > summary, details.lukk > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap }
+details.vis-anbud > summary::-webkit-details-marker, details.lukk > summary::-webkit-details-marker { display: none }
+details.vis-anbud > summary::after, details.lukk > summary::after { content: "Vis"; margin-left: auto; font-size: 14px; font-weight: 600; color: var(--red-700) }
+details.vis-anbud[open] > summary::after, details.lukk[open] > summary::after { content: "Skjul" }
+details.vis-anbud:not([open]), details.lukk:not([open]) { gap: 0 }
+details.lukk > summary h2, details.lukk > summary h3 { margin: 0 }
+details.lukk[open] > summary { margin-bottom: 14px }
+details.planer { border-top: 1px solid var(--n200); padding-top: 14px; margin-top: 4px }
+.inviter { border-top: 1px solid var(--n200); padding-top: 18px; display: grid; gap: 14px }
+.vl-handling { display: flex; gap: 2px; align-items: center }
+.f-vis { display: grid; gap: 2px; align-content: start; font-size: 13px; color: var(--n800); font-weight: 600 }
 details.vis-anbud .tittel { font-size: 18px }
 tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-variant-numeric: normal }
 
@@ -233,7 +239,7 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-var
 .vl-gruppe { display: grid; gap: 8px }
 .vl-gruppe h3 { font-size: 14px; margin: 0; color: var(--n700) }
 .vl { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
-.vl-rad { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--n200); border-radius: 14px; background: var(--n0) }
+.vl-rad { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--n200); border-radius: 14px; background: var(--n0) }
 .vl-rad.fjernet { background: var(--n50); color: var(--n500) }
 .vl-rad.fjernet .vl-navn { text-decoration: line-through; color: var(--n500) }
 .vl-mini, .vl-ikon { width: 48px; height: 48px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: var(--n100); color: var(--n600); font-size: 11px; font-weight: 700; letter-spacing: .04em }
@@ -242,7 +248,7 @@ tr.gj td { color: var(--n600); font-size: 13px; background: var(--n50); font-var
 .vl-navn { font-weight: 600; color: var(--n900); overflow-wrap: anywhere }
 a.vl-navn { color: var(--red-700); text-decoration: none }
 a.vl-navn:hover { text-decoration: underline; text-underline-offset: 3px }
-.vl-rad select { width: auto; height: 34px; font-size: 13px; padding: 0 8px }
+.vl-rad select { width: auto; height: 34px; font-size: 13px; padding: 0 8px; grid-column: 2 / -1; justify-self: start }
 .vl-bilder { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px }
 .vl-bilde { display: grid; gap: 4px; text-decoration: none; color: var(--n700); font-size: 12px; position: relative; min-width: 0; overflow-wrap: anywhere }
 .vl-bilde img, .vl-bilde .vl-tom { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--n100); border: 1px solid var(--n200); display: grid; place-items: center; color: var(--n500); font-weight: 700 }
@@ -361,9 +367,13 @@ table.brukere tr.venter td { background: var(--warn-50) }
   table.inv td:nth-child(3), table.inv td:nth-child(4) { grid-column: 1 / -1 }
   table.inv td:nth-child(4) .row { justify-content: flex-start !important }
   table.inv .confirm.liten { max-width: none }
-  .vl-rad { grid-template-columns: 40px minmax(0, 1fr) }
+  .vl-rad { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; padding: 8px 10px }
   .vl-mini, .vl-ikon { width: 40px; height: 40px }
-  .vl-rad > select, .vl-rad > .vl-handling { grid-column: 2; justify-self: start }
+  .vl-handling { flex-direction: column; align-items: flex-end }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+  .kpi { padding: 12px 14px }
+  .kpi b { font-size: 18px }
+  .fakta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px }
   .vl-bilder { grid-template-columns: repeat(2, minmax(0, 1fr)) }
   .plan-rad { grid-template-columns: minmax(0, 1fr) 70px 70px }
   .plan-rad .uke { display: none }
@@ -550,6 +560,10 @@ const visbartBilde = mime => ['image/jpeg', 'image/png', 'image/webp'].includes(
 const filMerke = mime => mime === 'application/pdf' ? 'PDF' : /word/.test(mime) ? 'DOC' : /excel|sheet/.test(mime) ? 'XLS' : mime.startsWith('image/') ? 'BILDE' : 'FIL';
 const trygtNavn = n => String(n).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/_+/g, '_').slice(-80) || 'fil';
 const meg = () => S.sesjon?.profil || null;
+// Lukkede deler (details) husker om de er åpne, så de ikke smekker igjen når siden tegnes på nytt
+const apne = new Set();
+const erApen = id => apne.has(id);
+document.addEventListener('toggle', e => { const d = e.target; if (d.tagName === 'DETAILS' && d.id) d.open ? apne.add(d.id) : apne.delete(d.id); }, true);
 const erAdmin = () => meg()?.rolle === 'admin';
 const harTilgang = () => ['admin', 'takstmann'].includes(meg()?.rolle);
 const uker = v => isNum(v) ? nf.format(v) + (v === 1 ? ' uke' : ' uker') : '–';
@@ -1275,7 +1289,7 @@ function vQaAdmin(a, inv, sporsmal, avsluttet) {
     ${vent}${pub}
     ${!ubesvarte.length && !publiserte.length ? '<p class="muted">Ingen spørsmål ennå.</p>'
       : !vent && !pub ? `<p class="muted">${{ venter: 'Ingen spørsmål venter på svar.', avklaring: 'Ingen avklaringer.', sporsmal: 'Ingen spørsmål.' }[f] || ''}</p>` : ''}
-    ${avsluttet ? '' : `<div class="qa-ny">
+    ${avsluttet ? '' : !(S.visAvklaring || trim(S.avklaring) || S.bekreft === 'avklaring') ? `<div class="qa-ny"><button class="ghost" data-act="visAvklaring">+ Legg ut en avklaring til alle</button></div>` : `<div class="qa-ny">
       <label class="f"><span>Legg ut en avklaring til alle <em>(valgfritt)</em></span><textarea id="avklaring" rows="2" placeholder="F.eks. en rettelse eller noe alle bør vite">${esc(S.avklaring || '')}</textarea></label>
       ${S.bekreft === 'avklaring' ? `<div class="confirm"><strong>Publisere avklaringen til alle?</strong><p>Den kan ikke endres eller slettes etterpå.</p>
         <div class="row"><button class="pri" data-act="avklaring">Ja, publiser</button><button data-act="avbryt">Avbryt</button></div></div>`
@@ -1329,7 +1343,7 @@ function aapneEpost(til, emne, tekst) {
 }
 function vInviter(a) {
   const u = S.invUtkast, nk = S.nyKode;
-  if (nk) return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">${nk.fornyet ? 'Ny kode' : 'Steg 3 av 3'}</span><h2>${nk.epost ? 'Send e-posten' : 'Send koden'}</h2>
+  if (nk) return `<div class="inviter" id="inviter"><div class="steg-h"><span class="step">${nk.fornyet ? 'Ny kode' : 'Steg 3 av 3'}</span><h3>${nk.epost ? 'Send e-posten' : 'Send koden'}</h3>
       ${nk.fornyet ? `<p class="sub">Den gamle koden til ${esc(nk.navn)} virker ikke lenger. Det de har levert, er tatt vare på.</p>` : ''}</div>
       <div class="box warn small"><strong>Koden for ${esc(nk.navn)} vises bare nå.</strong> Den lagres ikke i klartekst, så du kan ikke hente den frem igjen.</div>
       <div class="code">${esc(nk.kode)}</div>
@@ -1340,8 +1354,8 @@ function vInviter(a) {
       ${nk.epost ? '<p class="hint">Åpnet den seg ikke? Trykk «Åpne e-posten» igjen. Virker det fortsatt ikke, trykk «Kopier teksten» og lim den inn i en ny e-post.</p>' : ''}
       <div class="sendt-sporsmal"><strong>Har du sendt den?</strong>
         <div class="row"><button data-act="merkSendt" data-id="${nk.id}">Ja, marker som sendt</button><button class="ghost" data-act="lukkKode">Ikke ennå</button></div></div>
-    </section>`;
-  if (u) return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 2 av 3</span><h2>Se over e-posten</h2>
+    </div>`;
+  if (u) return `<div class="inviter" id="inviter"><div class="steg-h"><span class="step">Steg 2 av 3</span><h3>Se over e-posten</h3>
         <p class="sub">Ingenting sendes fra portalen. Du sender selv fra ditt eget e-postprogram.</p></div>
       <div class="epost">
         <div class="epost-rad"><span>Fra</span><div>Din egen e-postadresse <span class="muted small">(åpnes i e-postprogrammet ditt, for eksempel Outlook)</span></div></div>
@@ -1351,15 +1365,15 @@ function vInviter(a) {
       </div>
       <p class="hint">${KODE} byttes ut med leverandørens personlige kode når du trykker på knappen. Send én e-post per leverandør, aldri flere på samme e-post.</p>
       <div class="row"><button class="pri" data-act="lagOgSend">${u.epost ? 'Lag kode og åpne e-post' : 'Lag kode'}</button><button data-act="invTilbake">Tilbake</button></div>
-    </section>`;
-  return `<section class="panel" id="inviter"><div class="steg-h"><span class="step">Steg 1 av 3</span><h2>Inviter leverandør</h2>
+    </div>`;
+  return `<div class="inviter" id="inviter"><div class="steg-h"><span class="step">Steg 1 av 3</span><h3>Inviter leverandør</h3>
       <p class="sub">Du ser e-posten før noe sendes. Den sendes fra din egen e-post, ikke fra portalen.</p></div>
     <form class="grid2" data-form="inviter">
       <label class="f">Firmanavn<input id="invnavn" placeholder="Firma AS" required></label>
       <label class="f"><span>E-post <em>(valgfritt)</em></span><input id="invepost" type="email" placeholder="post@firma.no"></label>
-      <div class="row" style="align-self:end"><button class="pri" type="submit">Se e-posten</button></div>
+      <div class="row" style="align-self:end"><button class="pri" type="submit">Se e-posten</button>${S.aktiv?.invitasjoner?.length ? '<button type="button" class="ghost" data-act="skjulInviter">Avbryt</button>' : ''}</div>
     </form>
-  </section>`;
+  </div>`;
 }
 
 /* ---------- anbefaling (takstmann) og tildeling (admin) ---------- */
@@ -1479,12 +1493,12 @@ function vPlaner(a, sortert, inv) {
   med.forEach(m => { m.forskyv = kalender ? (new Date(m.start + 'T12:00:00') - new Date(basis + 'T12:00:00')) / 864e5 / 7 : 0; });
   const skala = Math.ceil(Math.max(...med.map(m => m.forskyv + m.slutt)));
   const forst = kalender ? med.map(m => m.ferdig).sort()[0] : null;
-  return `<h3 style="margin-top:8px" id="planer">Fremdriftsplan</h3>
+  return `<details class="lukk planer" id="planer" ${erApen('planer') ? 'open' : ''}><summary><h3>Fremdriftsplanene</h3><span class="sub small">Ferdig ca. står også i tabellen under</span></summary>
     <p class="hint">${kalender ? 'Planene står på samme kalender, ut fra når hver leverandør kan starte. Da ser du hvem som faktisk blir ferdig først.' : 'Samme skala for alle. Uke 1 er uken leverandøren starter.'}</p>
     ${med.map(m => `<div class="tl-tilbud"><div class="row between"><strong>${esc(m.x.firmanavn)} ${kalender && m.ferdig === forst ? '<span class="badge">Ferdig først</span>' : ''}</strong>
         <span class="small muted">${uker(tall(m.x.byggetid_uker))} · oppstart ${datoDag(m.x.oppstart)}${m.ferdig ? ` · <b>ferdig ca. ${datoDag(m.ferdig)}</b>` : ''}</span></div>
       ${tidslinje(m.faser, kalender ? { skala, oppstart: basis, forskyv: m.forskyv, kunDato: true } : { skala })}
-      ${trim(m.x.fremdrift.kommentar) ? `<span class="small">Kommentar: ${esc(m.x.fremdrift.kommentar)}</span>` : ''}</div>`).join('')}`;
+      ${trim(m.x.fremdrift.kommentar) ? `<span class="small">Kommentar: ${esc(m.x.fremdrift.kommentar)}</span>` : ''}</div>`).join('')}</details>`;
 }
 
 /* ---------- vedlegg (Storebrand og takstmann) ---------- */
@@ -1498,10 +1512,10 @@ function vVedlegg(a, liste) {
       <div class="vl-info">${v.url ? `<a class="vl-navn" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.navn)}</a>` : `<span class="vl-navn">${esc(v.navn)}</span>`}
         <span class="small muted">${storrelseTekst(v.storrelse)} · ${dato(v.opprettet)}${v.fjernet ? ` · fjernet ${dato(v.fjernet)}` : ''}</span>
         ${v.etter_utsending && !v.fjernet ? '<span><span class="badge ny">Lagt til etter utsending</span></span>' : ''}</div>
-      ${v.fjernet ? '' : `<select data-vk="${v.id}" aria-label="Kategori for ${esc(v.navn)}">${Object.entries(KATEGORIER).map(([k, n]) => `<option value="${k}" ${k === v.kategori ? 'selected' : ''}>${n}</option>`).join('')}</select>
-        <div class="vl-handling">${S.bekreft === 'fjernV:' + v.id ? `<div class="confirm liten"><span>Fjerne ${esc(v.navn)}? ${a.status === 'utkast' ? 'Filen slettes.' : 'Filen slettes, og leverandørene ser den ikke lenger.'}</span>
+      ${v.fjernet ? '' : `<div class="vl-handling">${S.bekreft === 'fjernV:' + v.id ? '' : `<button class="ghost small" data-act="endreKat" data-id="${v.id}">Kategori</button>`}${S.bekreft === 'fjernV:' + v.id ? `<div class="confirm liten"><span>Fjerne ${esc(v.navn)}? ${a.status === 'utkast' ? 'Filen slettes.' : 'Filen slettes, og leverandørene ser den ikke lenger.'}</span>
           <div class="row"><button class="danger small" data-act="fjernV" data-id="${v.id}">Ja, fjern</button><button class="small" data-act="avbryt">Avbryt</button></div></div>`
-          : `<button class="ghost danger small" data-act="spørFjernV" data-id="${v.id}">Fjern</button>`}</div>`}</li>`;
+          : `<button class="ghost danger small" data-act="spørFjernV" data-id="${v.id}">Fjern</button>`}</div>
+        ${S.endreKat === v.id ? `<select data-vk="${v.id}" aria-label="Kategori for ${esc(v.navn)}">${Object.entries(KATEGORIER).map(([k, n]) => `<option value="${k}" ${k === v.kategori ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}`}</li>`;
   const grupper = Object.entries(KATEGORIER).map(([k, n]) => { const g = aktive.filter(v => v.kategori === k);
     return g.length ? `<div class="vl-gruppe"><h3>${n} <span class="muted">(${g.length})</span></h3><ul class="vl">${g.map(rad).join('')}</ul></div>` : ''; }).join('');
   return `${S.vedleggFeil?.length ? `<div class="box err" role="alert"><strong>${S.vedleggFeil.length === 1 ? 'En fil ble ikke lastet opp' : 'Noen filer ble ikke lastet opp'}</strong><ul>${S.vedleggFeil.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''}
@@ -1583,28 +1597,32 @@ function vAnbud() {
     </section>
     ${['utsendt', 'tildelt'].includes(a.status) ? `<div class="row"><button data-act="status">Status til forsikringstaker (PDF)</button>
       <span class="hint">En oversikt uten priser, som du kan sende til kunden.</span></div>` : ''}
-    <details class="panel vis-anbud"><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
-      <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
-    <section class="panel" id="vedlegg"><div class="steg-h"><h2>Vedlegg</h2><p class="sub">Takstrapport, bilder og andre dokumenter. Leverandørene ser disse.</p></div>
-      ${vVedlegg(a, S.aktiv.vedlegg || [])}</section>
-    ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
     ${a.status === 'tildelt' && tildelt ? `<div class="box info">Tildelt <strong>${esc(tildelt.firmanavn)}</strong> for ${kr(tildelt.sum_eks_mva)} eks. mva.${erAdmin() ? ` Besparelse mot kalkyle: <strong class="num">${kr(a.kalkyle_sum - tildelt.sum_eks_mva)}</strong>.` : ''}${trim(a.tildelt_begrunnelse) ? `<br><span class="small">Begrunnelse: ${esc(a.tildelt_begrunnelse)}</span>` : ''}</div>` : ''}
 
-    ${!avsluttet ? vInviter(a) : ''}
-
-    <section class="panel"><h2>Invitasjoner</h2>
-      ${inv.length ? `<div class="tw"><table class="inv"><thead><tr><th>Leverandør</th><th>Kode</th><th>Status</th><th></th></tr></thead><tbody>${invRader}</tbody></table></div>` : '<p class="muted">Ingen invitert ennå.</p>'}
-    </section>
-
-    <section class="panel"><h2>Tilbud</h2>
+    <section class="panel" id="tilbud"><h2>Tilbud</h2>
       ${t.length ? `<div class="cards">${kort}</div>
         ${!avsluttet ? vBeslutning(a, sortert, valgtT, trengerBegr) : ''}
         ${vPlaner(a, sortert, inv)}
         <h3 style="margin-top:8px">Pris per post</h3>${tabell}`
-      : '<p class="muted">Ingen tilbud levert ennå.</p>'}
+      : `<p class="muted">Ingen tilbud levert ennå.${inv.length ? ` ${inv.length === 1 ? 'Én leverandør er invitert' : inv.length + ' leverandører er invitert'}.` : ' Inviter leverandører under.'}</p>`}
     </section>
 
-    ${!avsluttet ? `<section class="panel"><div class="steg-h"><h2>Frister og befaring</h2><p class="sub">Dette kan endres etter utsending. Gi beskjed til leverandørene når du endrer noe.</p></div>
+    ${vQaAdmin(a, inv, S.aktiv.sporsmal || [], avsluttet)}
+
+    <section class="panel" id="leverandorer"><div class="row between"><h2>Leverandører</h2>
+        ${!avsluttet && inv.length && !(S.nyKode || S.invUtkast || S.visInviter) ? '<button class="small" data-act="visInviter">+ Inviter flere</button>' : ''}</div>
+      ${inv.length ? `<div class="tw"><table class="inv"><thead><tr><th>Leverandør</th><th>Kode</th><th>Status</th><th></th></tr></thead><tbody>${invRader}</tbody></table></div>` : '<p class="muted">Ingen invitert ennå.</p>'}
+      ${!avsluttet && (!inv.length || S.nyKode || S.invUtkast || S.visInviter) ? vInviter(a) : ''}
+    </section>
+
+    <section class="panel" id="vedlegg"><div class="steg-h"><h2>Vedlegg</h2><p class="sub">Takstrapport, bilder og andre dokumenter. Leverandørene ser disse.</p></div>
+      ${vVedlegg(a, S.aktiv.vedlegg || [])}</section>
+
+    <details class="panel vis-anbud" id="visAnbud" ${erApen('visAnbud') ? 'open' : ''}><summary><h2>Anbudet</h2><span class="sub">Slik leverandørene ser det</span></summary>
+      <h3 class="tittel">${esc(a.tittel)}</h3>${anbudDeler(a).fakta}${anbudDeler(a).arbeid}${anbudDeler(a).krav}</details>
+
+    ${!avsluttet ? `<details class="panel lukk" id="frister" ${S.bekreft === 'avlys' || erApen('frister') ? 'open' : ''}><summary><h2>Endre frister eller avlys</h2></summary>
+      <div class="stack"><p class="sub">Frister og befaring kan endres etter utsending. Gi beskjed til leverandørene når du endrer noe.</p>
       <form class="stack" data-form="frist"><div class="grid2">
         <label class="f">Tilbudsfrist<input id="nyfrist" type="datetime-local" value="${esc(tilLokal(a.frist))}"></label>
         <label class="f"><span>Frist for spørsmål <em>(valgfritt)</em></span><input id="nysporsmal" type="date" value="${esc(a.frist_sporsmal || '')}"></label>
@@ -1612,8 +1630,8 @@ function vAnbud() {
         <label class="f"><span>Oppmøtested <em>(valgfritt)</em></span><input id="nyoppmote" value="${esc(a.oppmote || '')}"></label>
       </div><button type="submit" class="back">Lagre endringer</button></form>
       ${S.bekreft === 'avlys' ? `<div class="confirm"><strong>Avlyse anbudet?</strong><p>Leverandørene får beskjed om at anbudet er avlyst når de åpner koden.</p><div class="row"><button class="danger" data-act="avlys">Ja, avlys</button><button data-act="avbryt">Avbryt</button></div></div>`
-        : `<button class="ghost danger back" data-act="spørAvlys">Avlys anbudet</button>`}
-    </section>` : ''}`;
+        : `<button class="ghost danger back" data-act="spørAvlys">Avlys anbudet</button>`}</div>
+    </details>` : ''}`;
 }
 
 /* ---------- årsoversikt ---------- */
@@ -1728,7 +1746,7 @@ function vLev() {
     </section>
     <section class="panel">${d.arbeid}</section>
     ${vVedleggLev(L)}
-    <section class="panel">${d.krav}</section>
+    <details class="panel lukk" id="krav" ${erApen('krav') ? 'open' : ''}><summary><h2>Krav og tildeling</h2><span class="sub">Les før dere gir pris</span></summary>${d.krav}</details>
     ${vQaLev(L)}
     ${laast ? `<div class="box warn">Fristen har gått ut. ${L.data.tilbud ? 'Her er tilbudet dere leverte.' : 'Dere leverte ikke tilbud på dette anbudet.'}</div>`
       : L.data.tilbud ? `<div class="box info">Dere leverte ${dato(L.data.tilbud.levert)}. Dere kan endre og sende på nytt frem til fristen. Det siste tilbudet gjelder.</div>` : ''}
@@ -1744,7 +1762,7 @@ function vLev() {
       </div></section>
     <section class="panel"><div class="steg-h"><h2>Gjennomføring</h2><p class="sub">Brukes når vi sammenligner tilbudene, sammen med prisen.</p></div>
       <div class="grid2">
-        ${a.krev_fremdrift ? `<div class="f"><span>Byggetid</span><b id="planByggetid" style="font-size:1.1rem">${planSlutt(f) ? uker(planSlutt(f)) : '–'}</b><span class="small" id="planFerdig">${ferdigTekst(f.oppstart, planSlutt(f))}</span><span class="hint">Regnes ut fra fremdriftsplanen under.</span></div>`
+        ${a.krev_fremdrift ? `<div class="f-vis"><span>Byggetid</span><b id="planByggetid" style="font-size:1.1rem">${planSlutt(f) ? uker(planSlutt(f)) : '–'}</b><span class="small" id="planFerdig">${ferdigTekst(f.oppstart, planSlutt(f))}</span><span class="hint">Regnes ut fra fremdriftsplanen under.</span></div>`
           : `<label class="f">Byggetid<span class="med-enhet"><input data-lf="byggetid_uker" value="${esc(f.byggetid_uker)}" inputmode="decimal" placeholder="0" ${ro}><span>uker</span></span></label>`}
         <label class="f">Tidligste oppstart<input data-lf="oppstart" type="date" value="${esc(f.oppstart)}" ${ro}></label>
         <label class="f">Timepris for tilleggsarbeid<span class="med-enhet"><input data-lf="timepris" value="${esc(f.timepris)}" inputmode="decimal" placeholder="0" ${ro}><span>kr/time eks. mva</span></span></label>
@@ -1821,12 +1839,12 @@ async function startMfa() {
 async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S.aktiv = null; S.bekreft = null; render(); }
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
-  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null;
+  S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null; S.visInviter = false; S.visAvklaring = false; S.endreKat = null; apne.clear();
   if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
 }
-async function levAapne(kode) {
+async function levAapne(kode) { apne.clear();
   const r = await api.levHent(kode);
   if (!r.ok) { S.feil = [r.feil]; S._kodeFyll = kode; S.view = 'start'; return render(); }
   const t = r.tilbud;
@@ -1863,6 +1881,10 @@ document.addEventListener('click', e => {
     spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
     fjernV: () => jobb(async () => { const { anbud, liste } = vedleggSted(); const v = liste.find(x => x.id === id);
       await api.fjernVedlegg(v, anbud.status); S.bekreft = null; S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Vedlegget er fjernet'); keep(); }),
+    visInviter: () => { S.visInviter = true; keep(); setTimeout(() => $('#invnavn')?.focus(), 0); },
+    skjulInviter: () => { S.visInviter = false; keep(); },
+    visAvklaring: () => { S.visAvklaring = true; keep(); setTimeout(() => $('#avklaring')?.focus(), 0); },
+    endreKat: () => { S.endreKat = S.endreKat === id ? null : id; keep(); },
     status: () => { S.statusHilsen = ''; S.view = 'status'; S.feil = []; window.scrollTo(0, 0); render(); },
     tilAnbud: () => { S.view = 'anbud'; render(); },
     skrivUtStatus: () => { const tittel = document.title; document.title = `Status ${S.aktiv.anbud.skadenr}`;
@@ -1899,7 +1921,7 @@ document.addEventListener('click', e => {
     slettInv: () => jobb(async () => { S.bekreft = null; await api.slettInvitasjon(id); S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Invitasjonen er trukket tilbake. Koden virker ikke lenger.'); keep(); }),
     kopierKode: () => kopier(S.nyKode.kode, 'Koden er kopiert'),
     kopierTekst: () => kopier(S.nyKode.tekst, 'Teksten er kopiert'),
-    lukkKode: () => { S.nyKode = null; toast('Invitasjonen står som «Ikke sendt». Du kan markere den som sendt senere.'); keep(); },
+    lukkKode: () => { S.nyKode = null; S.visInviter = false; toast('Invitasjonen står som «Ikke sendt». Du kan markere den som sendt senere.'); keep(); },
     invTilbake: () => { S.invUtkast = null; keep(); },
     aapneIgjen: () => aapneEpost(S.nyKode.epost, S.nyKode.emne, S.nyKode.tekst),
     lagOgSend: () => jobb(async () => {
@@ -1911,7 +1933,7 @@ document.addEventListener('click', e => {
       S.nyKode = { ...r, navn: u.navn, epost: u.epost, emne: u.emne, tekst }; S.invUtkast = null;
       if (u.epost) aapneEpost(u.epost, u.emne, tekst);
       S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); keep(); }),
-    merkSendt: () => jobb(async () => { await api.merkSendt(id); if (S.nyKode?.id === id) S.nyKode = null;
+    merkSendt: () => jobb(async () => { await api.merkSendt(id); if (S.nyKode?.id === id) { S.nyKode = null; S.visInviter = false; }
       S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Markert som sendt'); keep(); }),
     provSom: () => jobb(() => levAapne(el.dataset.kode)),
     fyllkode: () => { $('#kode').value = el.dataset.kode; },
@@ -1932,7 +1954,7 @@ document.addEventListener('click', e => {
     spørSlettSp: () => { S.bekreft = 'slettSp:' + id; keep(); },
     slettSp: () => jobb(async () => { await api.slettSporsmal(id); S.bekreft = null; S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Spørsmålet er slettet'); keep(); }),
     spørAvklaring: () => { if (!trim(S.avklaring)) { S.feil = ['Skriv avklaringen først.']; return keep(); } S.feil = []; S.bekreft = 'avklaring'; keep(); },
-    avklaring: () => jobb(async () => { await api.lagAvklaring(S.aktiv.anbud.id, trim(S.avklaring)); S.avklaring = ''; S.bekreft = null;
+    avklaring: () => jobb(async () => { await api.lagAvklaring(S.aktiv.anbud.id, trim(S.avklaring)); S.avklaring = ''; S.bekreft = null; S.visAvklaring = false;
       S.aktiv = await api.hentAnbud(S.aktiv.anbud.id); toast('Avklaringen er publisert til alle leverandørene'); keep(); }),
     levEndre: () => jobb(() => levAapne(S.lev.kode)),
     levut: () => { S.lev = null; S.feil = []; S._kodeFyll = ''; if (location.hash === '#intern' && harTilgang()) return jobb(visListe); S.view = 'start'; render(); },
@@ -2093,7 +2115,7 @@ document.addEventListener('change', e => {
   if (t.id === 'aarvalg') { S.valgtAar = +t.value; render(); }
   if (t.id === 'vedleggFil') { const filer = [...t.files]; t.value = ''; if (filer.length) lastOppFiler(filer); }
   if (t.dataset.vk) jobb(async () => { const { anbud } = vedleggSted();
-    await api.endreVedlegg(t.dataset.vk, { kategori: t.value }); S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Kategorien er endret'); keep(); });
+    await api.endreVedlegg(t.dataset.vk, { kategori: t.value }); S.vedleggFeil = []; S.endreKat = null; await lastVedleggPaaNytt(anbud.id); toast('Kategorien er endret'); keep(); });
 });
 // Dra og slipp filer. Filer som slippes utenfor feltet, skal ikke åpnes i nettleseren (da mister man det man holder på med).
 const harFiler = e => [...(e.dataTransfer?.types || [])].includes('Files');

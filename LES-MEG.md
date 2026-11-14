@@ -137,6 +137,21 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 
 Når du sammenligner, ser du byggetid, oppstart, timepris, forbehold og fremdriftsplanene ved siden av prisen.
 
+## Slik er anbudssiden bygget opp
+
+Det du trenger oftest, står øverst:
+
+1. **Tallene** (kalkyle, tilbud levert, laveste tilbud og frist) og knappen **Status til forsikringstaker**.
+2. **Tilbud**: kortene, tildeling og pris per post. Fremdriftsplanene ligger lukket under «Fremdriftsplanene».
+3. **Spørsmål og svar**. «Legg ut en avklaring» åpnes med en knapp.
+4. **Leverandører**: alle invitasjoner, og knappen **+ Inviter flere**.
+5. **Vedlegg**. Kategori endres med «Kategori» ved hver fil.
+6. **Anbudet** (slik leverandørene ser det) og **Endre frister eller avlys**. Begge er lukket til du trenger dem.
+
+Hos leverandøren er «Krav og tildeling» lukket, med teksten «Les før dere gir pris».
+
+Det du åpner, blir stående åpent til du går til et annet anbud.
+
 ## Fremdriftsplan
 
 - **En fast mal for hele saken**, ikke per fag. Seks faser: rigg og tildekking, riving og sanering, uttørking og venting, oppbygging, overflater, rydding og overlevering.
