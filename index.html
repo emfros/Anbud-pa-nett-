@@ -485,6 +485,8 @@ const stdHtml = u => `<div class="krav"><strong>Presiseringer</strong>
 const ARBEIDSTEKSTER = [
   ['TEK17', 'Det som bygges opp på nytt, skal utføres etter gjeldende byggteknisk forskrift (TEK17).'],
   ['Likt for likt', 'Skadde bygningsdeler erstattes med tilsvarende kvalitet og utførelse som før skaden.'],
+  ['SHA-plan', 'Entreprenøren skal kartlegge risikoen i arbeidet og lage plan for sikkerhet, helse og arbeidsmiljø (SHA-plan) før oppstart.'],
+  ['SJA', 'Entreprenøren skal gjøre sikker jobb-analyse (SJA) før arbeid med særlig risiko.'],
   ['Sikringsplan', 'Entreprenøren skal lage en sikringsplan før oppstart. Planen skal vise hvordan bygget, innbo og andre personer sikres mens arbeidet pågår.'],
   ['Tildekking', 'Entreprenøren skal dekke til og beskytte gulv, innbo og tilstøtende rom mot støv og skader.'],
   ['Våtrom', 'Våtrom skal utføres etter Byggebransjens våtromsnorm (BVN). Membranen skal dokumenteres med bilder før flislegging.'],
@@ -493,19 +495,32 @@ const ARBEIDSTEKSTER = [
   ['Varme arbeider', 'Varme arbeider skal utføres av personer med gyldig sertifikat og etter sikkerhetsforskriften for varme arbeider.'],
   ['Asbest', 'Ved mistanke om asbest skal entreprenøren stanse arbeidet og varsle Storebrand. Asbest skal bare fjernes av firma med tillatelse fra Arbeidstilsynet.'],
   ['Arbeid i høyden', 'Arbeid i høyden skal sikres etter gjeldende forskrift. Stillas skal kontrolleres før bruk.'],
+  ['Avfallsplan', 'Entreprenøren skal lage avfallsplan og sluttrapport når TEK17 krever det. Avfallet skal sorteres på byggeplassen.'],
   ['Bilder', 'Entreprenøren skal dokumentere arbeidet med bilder før, under og etter utførelse.'],
+  ['FDV', 'Entreprenøren skal levere FDV-dokumentasjon (forvaltning, drift og vedlikehold) når arbeidet er ferdig.'],
   ['Ferdigbefaring', 'Entreprenøren skal kalle inn til ferdigbefaring når arbeidet er ferdig.']
 ];
 const erArbeidstekst = linje => ARBEIDSTEKSTER.some(([, t]) => t === trim(linje));
 const harArbeidstekst = (beskrivelse, t) => String(beskrivelse || '').split('\n').some(l => trim(l) === t);
-// Legger teksten til nederst, eller tar den bort hvis den står der fra før
-function vekslArbeidstekst(beskrivelse, t) {
-  const linjer = String(beskrivelse || '').split('\n');
-  if (linjer.some(l => trim(l) === t)) return linjer.filter(l => trim(l) !== t).join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
-  const sist = linjer.filter(trim).pop();
-  return String(beskrivelse || '').replace(/\s+$/, '') + (!sist ? '' : erArbeidstekst(sist) ? '\n' : '\n\n') + t;
+// Tar teksten bort hvis den står der fra før. Ellers settes den inn som eget avsnitt
+// etter linjen markøren står på (pos). Uten markør: nederst. Gir { tekst, pos }, der pos er rett etter det som ble satt inn.
+function vekslArbeidstekst(beskrivelse, t, pos) {
+  const tekst = String(beskrivelse || '').replace(/\s+$/, '');
+  const linjer = tekst ? tekst.split('\n') : [];
+  if (linjer.some(l => trim(l) === t)) { const ut = linjer.filter(l => trim(l) !== t).join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\s+$/g, '');
+    return { tekst: ut, pos: pos == null ? null : Math.min(pos, ut.length) }; }
+  let li = linjer.length - 1;
+  if (pos != null && pos < tekst.length) { let n = 0; li = linjer.findIndex(l => (n += l.length + 1) > pos); }
+  let i = li + 1;
+  if (li >= 0 && !trim(linjer[li])) { linjer.splice(li, 1); i = li; }   // markøren står på en tom linje: bruk den
+  const ny = [t], over = linjer[i - 1], under = linjer[i];
+  if (over !== undefined && trim(over) && !erArbeidstekst(over)) ny.unshift('');
+  if (under !== undefined && trim(under) && !erArbeidstekst(under)) ny.push('');
+  linjer.splice(i, 0, ...ny);
+  const ut = linjer.join('\n').replace(/\n{3,}/g, '\n\n');
+  return { tekst: ut, pos: ut.indexOf(t) + t.length };
 }
-const arbeidHtml = u => `<div class="hurtig full"><span class="hint">Standardtekster. Trykk for å legge teksten inn i arbeidsomfanget. Trykk en gang til for å ta den bort.</span>
+const arbeidHtml = u => `<div class="hurtig full"><span class="hint">Standardtekster. Teksten settes inn som eget avsnitt der markøren står i arbeidsomfanget, ellers nederst. Trykk en gang til for å ta den bort.</span>
   <div class="hurtig-rad">${ARBEIDSTEKSTER.map(([navn, t], i) => { const paa = harArbeidstekst(u.beskrivelse, t);
     return `<button type="button" class="small${paa ? ' on' : ''}" data-act="arbeidstekst" data-i="${i}" aria-pressed="${paa}" title="${esc(t)}">${paa ? '✓' : '+'} ${esc(navn)}</button>`; }).join('')}</div></div>`;
 // Oppdaterer knappene uten å tegne hele siden på nytt (da mister man markøren i tekstfeltet)
@@ -1916,7 +1931,7 @@ async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
   S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null; S.visInviter = false; S.visAvklaring = false; S.endreKat = null; apne.clear();
-  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; huskUtkast(); S.view = 'rediger'; }
+  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S._arbPos = null; huskUtkast(); S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
 }
@@ -1953,8 +1968,8 @@ document.addEventListener('click', e => {
     liste: () => jobb(visListe),
     aar: () => jobb(async () => { S.aar = await api.aarsoversikt(); S.view = 'aar'; render(); }),
     aapne: () => jobb(() => aapneAnbud(id)),
-    nytt: () => { S.utkast = tom(); huskUtkast(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
-    arbeidstekst: () => { const u = S.utkast; u.beskrivelse = vekslArbeidstekst(u.beskrivelse, ARBEIDSTEKSTER[+el.dataset.i][1]);
+    nytt: () => { S.utkast = tom(); S._arbPos = null; huskUtkast(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    arbeidstekst: () => { const u = S.utkast, r = vekslArbeidstekst(u.beskrivelse, ARBEIDSTEKSTER[+el.dataset.i][1], S._arbPos); u.beskrivelse = r.tekst; S._arbPos = r.pos;
       const felt = $('[data-f="beskrivelse"]'); if (felt) { felt.value = u.beskrivelse; felt.rows = Math.max(6, Math.min(18, u.beskrivelse.split('\n').length + 1)); } oppdaterArbeidKnapper(); },
     spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
     fjernV: () => jobb(async () => { const { anbud, liste } = vedleggSted(); const v = liste.find(x => x.id === id);
@@ -2200,6 +2215,8 @@ document.addEventListener('input', e => {
       $('#lmangler').textContent = s.mangler ? `${s.mangler} post(er) mangler pris` : ''; }
   }
 });
+// Husker hvor markøren sto i arbeidsomfanget, så en standardtekst kan settes inn der
+document.addEventListener('focusout', e => { if (e.target?.dataset?.f === 'beskrivelse') S._arbPos = e.target.selectionStart; });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'aarvalg') { S.valgtAar = +t.value; render(); }
