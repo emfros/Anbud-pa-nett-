@@ -259,6 +259,7 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Vedlegg forsvinner sporløst etter utsending | Etter utsending kan vedlegg bare fjernes, ikke slettes. Det står igjen når det ble lagt til og fjernet. |
 | Leverandør overser vedlegg som kom etter utsending | Rød boks øverst på siden, rød ramme på filene, og de må bekrefte at de har sett dem før de sender. |
 | Presiseringer endres etter at tilbud er gitt | Presiseringene låses i databasen når anbudet sendes ut, sammen med beskrivelse og vilkår. |
+| En mengde eller pris leses feil | Tall leses likt i nettsiden og databasen: `1200`, `1 200`, `1.200` og `7,2` virker alle. Databasen sender ikke ut anbud der en mengde ikke er et tall. |
 | Byggetid og fremdriftsplan stemmer ikke | Byggetiden regnes ut fra planen i databasen. Tallet fra nettleseren brukes ikke. |
 | Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 

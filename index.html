@@ -573,7 +573,13 @@ const kr = v => isNum(v) ? 'kr ' + nf.format(Math.round(v)) : '–';
 const kr2 = v => isNum(v) ? nf.format(v) : '–';
 const tall = v => v == null || v === '' ? null : Number(v);
 const isNum = v => typeof v === 'number' && isFinite(v);
-const parseNum = v => { if (typeof v === 'number') return v; const s = String(v ?? '').replace(/\s| /g, '').replace(',', '.'); if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return NaN; return Number(s); };
+// Leser tall slik de skrives på norsk: 1200 · 1 200 · 1.200 · 1.200,50 · 7,2 · 7.2
+// Punktum foran nøyaktig tre sifre er tusenskille (1.200 = 1200). Samme regel står i mengde_tall i oppsett.sql.
+const parseNum = v => { if (typeof v === 'number') return v; let s = String(v ?? '').replace(/[\s\u00A0]/g, '');
+  if (/^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(',', '.'); if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return NaN; return Number(s); };
+// Mengden lagres på én måte (1200 eller 7,2), så nettsiden og databasen alltid leser den likt
+const renMengde = v => { const n = parseNum(v); return isNum(n) ? String(n).replace('.', ',') : String(v ?? '').trim(); };
 const trim = v => String(v ?? '').trim();
 const nyId = p => p + Math.random().toString(36).slice(2, 9);
 const dato = d => d ? new Date(d).toLocaleString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
@@ -1161,6 +1167,8 @@ function vRediger() {
     </div>`).join('');
   return `<button class="link back" data-act="liste">← Alle anbud</button>
     <div class="row between"><h1>${u.id ? 'Rediger utkast' : 'Nytt anbud'}</h1><span class="chip utkast">utkast</span></div>
+    ${S.bekreft === 'forlat' ? `<div class="confirm" role="alert"><strong>Du har endringer som ikke er lagret</strong><p>Går du videre nå, mister du det du har skrevet siden sist du lagret.</p>
+      <div class="row"><button class="pri" data-act="lagre">Lagre utkast</button><button class="danger" data-act="forlat">Gå videre uten å lagre</button><button data-act="avbryt">Bli her</button></div></div>` : ''}
     ${feilBoks()}
     ${steg(1, 'Saken', '', `<div class="grid2">
         ${fld('skadenr', 'Skadenummer', { ph: 'SB-2026-00000' })}
@@ -1244,7 +1252,7 @@ function utkastForLagring(u) {
   const tekst = ['skadenr', 'adresse', 'tittel', 'beskrivelse', 'saerlige_forhold', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf', 'oppmote', 'onsket_ferdig', 'tildelingsregel'];
   return { ...u, ...Object.fromEntries(tekst.map(k => [k, trim(u[k])])), frist: new Date(u.frist).toISOString(),
     befaring: u.befaring ? new Date(u.befaring).toISOString() : null, frist_sporsmal: u.frist_sporsmal || null, vedstaelse: u.vedstaelse || null,
-    bygg: u.bygg.map(b => ({ ...b, navn: trim(b.navn), poster: b.poster.map(p => ({ ...p, beskrivelse: trim(p.beskrivelse), mengde: String(p.mengde).trim() })) })),
+    bygg: u.bygg.map(b => ({ ...b, navn: trim(b.navn), poster: b.poster.map(p => ({ ...p, beskrivelse: trim(p.beskrivelse), mengde: renMengde(p.mengde) })) })),
     kalkyle, kalkyle_sum: ks.mangler ? null : ks.sum, standardtekster: STANDARDTEKSTER.filter(x => (u.standardtekster || []).includes(x)) };
 }
 
@@ -1908,7 +1916,7 @@ async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
   S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null; S.visInviter = false; S.visAvklaring = false; S.endreKat = null; apne.clear();
-  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
+  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; huskUtkast(); S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
 }
@@ -1945,7 +1953,7 @@ document.addEventListener('click', e => {
     liste: () => jobb(visListe),
     aar: () => jobb(async () => { S.aar = await api.aarsoversikt(); S.view = 'aar'; render(); }),
     aapne: () => jobb(() => aapneAnbud(id)),
-    nytt: () => { S.utkast = tom(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    nytt: () => { S.utkast = tom(); huskUtkast(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
     arbeidstekst: () => { const u = S.utkast; u.beskrivelse = vekslArbeidstekst(u.beskrivelse, ARBEIDSTEKSTER[+el.dataset.i][1]);
       const felt = $('[data-f="beskrivelse"]'); if (felt) { felt.value = u.beskrivelse; felt.rows = Math.max(6, Math.min(18, u.beskrivelse.split('\n').length + 1)); } oppdaterArbeidKnapper(); },
     spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
@@ -1969,6 +1977,7 @@ document.addEventListener('click', e => {
     spørSend: () => { const f = sjekkUtkast(S.utkast, true); S.feil = f; S.bekreft = f.length ? null : 'send'; keep(); },
     sendUt: () => lagreUtkast(true),
     spørSlett: () => { S.bekreft = 'slett'; keep(); },
+    forlat: () => { S._forlatOk = true; S.bekreft = null; $(`#bar [data-act="${S._forlat}"]`)?.click(); },
     slettAnbud: () => jobb(async () => { await api.slettAnbud(S.utkast.id); toast('Utkastet er slettet'); await visListe(); }),
     avbryt: () => { S.bekreft = null; keep(); },
     velg: () => { S.valgt = id; S.bekreft = null; keep(); },
@@ -2030,18 +2039,25 @@ document.addEventListener('click', e => {
     levut: () => { S.lev = null; S.feil = []; S._kodeFyll = ''; if (location.hash === '#intern' && harTilgang()) return jobb(visListe); S.view = 'start'; render(); },
     skrivUt: () => window.print()
   }[act];
+  if (h && FORLATER.includes(act) && !S._forlatOk && utkastEndret()) { e.preventDefault(); S.bekreft = 'forlat'; S._forlat = act; S.feil = []; return render(); }
+  S._forlatOk = false;
   if (h) { if (el.tagName !== 'INPUT') e.preventDefault(); h(); }
 });
 function keep() { S._scroll = window.scrollY; render(); }
+// Utkastet slik det var sist det ble åpnet eller lagret. Brukes til å advare før endringer går tapt.
+const huskUtkast = () => { S.utkastLagret = JSON.stringify(S.utkast); };
+const utkastEndret = () => S.view === 'rediger' && !!S.utkast && JSON.stringify(S.utkast) !== S.utkastLagret;
+const FORLATER = ['liste', 'aar', 'brukere', 'loggut'];
+window.addEventListener('beforeunload', e => { if (utkastEndret()) { e.preventDefault(); e.returnValue = ''; } });
 
 async function lagreUtkast(sendUt) {
   const f = sjekkUtkast(S.utkast, sendUt);
   if (f.length) { S.feil = f; S.bekreft = null; return keep(); }
   await jobb(async () => {
     const lagret = await api.lagreAnbud(utkastForLagring(S.utkast));
-    S.utkast.id = lagret.id;   // med en gang, så et nytt forsøk ikke lager et anbud til
+    S.utkast.id = lagret.id; huskUtkast();   // med en gang, så et nytt forsøk ikke lager et anbud til
     if (sendUt) { await api.settStatus(lagret.id, 'utsendt'); toast('Anbudet er sendt ut. Nå kan du invitere leverandører.'); await aapneAnbud(lagret.id); }
-    else { toast('Utkastet er lagret'); keep(); }
+    else { S.bekreft = null; toast('Utkastet er lagret'); keep(); }
   });
 }
 // Vedleggene hører til utkastet når vi redigerer, ellers til anbudet som er åpent
@@ -2101,7 +2117,7 @@ async function levSend() {
       byggetid_uker: plan ? plan.slutt : parseNum(f.byggetid_uker), timepris: parseNum(f.timepris), bekreftet: f.bekreftet === true,
       fremdrift: plan ? { faser: plan.faser, kommentar: trim(planKommentar) } : null });
     if (!r.ok) { S.feil = [r.feil]; return keep(); }
-    if (r.byggetid_uker != null) S.lev.form.byggetid_uker = String(r.byggetid_uker);
+    if (r.byggetid_uker != null) S.lev.form.byggetid_uker = String(r.byggetid_uker).replace('.', ',');
     S.lev.kvittering = r; S.lev.form.priser = Object.fromEntries(Object.entries(priser).map(([k, v]) => [k, v]));
     S.view = 'kvittering'; render();
   });

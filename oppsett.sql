@@ -49,10 +49,24 @@ drop function if exists public.anbud_vakt();
 drop function if exists public.tilbud_finn(text);
 drop function if exists public.klient_ip();
 drop function if exists public.orgnr_gyldig(text);
+drop function if exists public.mengde_tall(text);
 
 -- ---------------------------------------------------------------------
 -- Hjelpefunksjoner
 -- ---------------------------------------------------------------------
+
+-- Leser en mengde slik den skrives på norsk: 1200 · 1 200 · 1.200 · 7,2 · 7.2
+-- Punktum foran nøyaktig tre sifre er tusenskille. Samme regel som parseNum i index.html.
+-- Gir null hvis teksten ikke er et tall.
+create function public.mengde_tall(t text) returns numeric
+language plpgsql immutable as $$
+declare s text := regexp_replace(coalesce(t, ''), '[\s\u00A0]', '', 'g');
+begin
+  if s ~ '^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$' then s := replace(s, '.', ''); end if;
+  return replace(s, ',', '.')::numeric;
+exception when others then
+  return null;
+end $$;
 
 -- ---------------------------------------------------------------------
 -- Brukere og roller. Tabellen slettes IKKE når filen kjøres på nytt,
@@ -364,6 +378,10 @@ begin
   if old.status = 'utkast' and new.status = 'utsendt' then
     if new.kalkyle_sum is null or jsonb_array_length(new.bygg) = 0 then
       raise exception 'Legg inn poster og kalkyle før du sender ut.';
+    end if;
+    if exists (select 1 from jsonb_array_elements(new.bygg) b, jsonb_array_elements(b->'poster') p
+               where coalesce(public.mengde_tall(p->>'mengde'), 0) <= 0) then
+      raise exception 'Alle poster må ha en mengde som er et tall over 0.';
     end if;
     if btrim(new.tittel) = '' or btrim(new.beskrivelse) = ''
        or btrim(new.takst_navn) = '' or btrim(new.takst_epost) = '' or new.vedstaelse is null then
@@ -874,7 +892,7 @@ begin
       if pris is null or pris < 0 then
         mangler := mangler + 1;
       else
-        mengde := coalesce((p->>'mengde')::numeric, 0);
+        mengde := coalesce(public.mengde_tall(p->>'mengde'), 0);
         total  := total + round(pris * mengde, 2);
         v_priser := v_priser || jsonb_build_object(p->>'id', pris);
       end if;
