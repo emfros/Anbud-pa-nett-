@@ -357,6 +357,9 @@ begin
   if new.frist_sporsmal is not null and new.frist_sporsmal > (new.frist at time zone 'Europe/Oslo')::date then
     raise exception 'Frist for spørsmål må være før tilbudsfristen.';
   end if;
+  if new.befaring is not null and new.befaring >= new.frist then
+    raise exception 'Befaringen må være før tilbudsfristen.';
+  end if;
 
   if old.status = 'utkast' and new.status = 'utsendt' then
     if new.kalkyle_sum is null or jsonb_array_length(new.bygg) = 0 then
