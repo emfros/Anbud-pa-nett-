@@ -155,12 +155,12 @@ Det du åpner, blir stående åpent til du går til et annet anbud.
 ## Fremdriftsplan
 
 - **En fast mal for hele saken**, ikke per fag. Seks faser: rigg og tildekking, riving og sanering, uttørking og venting, oppbygging, overflater, rydding og overlevering.
-- **Leverandøren fyller inn to tall per fase:** hvilken uke fasen starter, og hvor mange uker den tar. Uke 1 er uken de starter. Faser som ikke er aktuelle, står tomme. Faser kan gå samtidig.
-- **Byggetiden regnes ut fra planen**, både i nettsiden og i databasen. Leverandøren skriver den ikke selv, så plan og byggetid kan ikke vise forskjellige tall.
-- **En tidslinje tegnes automatisk** mens de fyller ut. Under hvert ukenummer står datoen uken starter, regnet fra tidligste oppstart. Uttørking og venting vises med striper, så du ser hvor tiden går med til venting.
-- **Ferdig ca.** regnes ut fra oppstart og byggetid. Det står hos leverandøren, i kvitteringen og på tilbudskortene hos deg.
-- **Hos deg** står planene på samme kalender, ut fra når hver leverandør kan starte. En som tar 4 uker og starter neste uke, kan bli ferdig før en som tar 3 uker og starter om tre uker. Den som blir ferdig først, får merket «Ferdig først». Merket står også på tilbudskortet og i tabellen under «Pris per post», der det er en egen rad «Ferdig ca.».
-- **Påkrevd som standard.** Du kan krysse det av på steg 4 i små saker. Da skriver leverandøren bare byggetid i uker, som før. Valget låses når anbudet sendes ut.
+- **Leverandøren velger tidligste oppstart først.** Planen starter der. Ingen fase kan starte før den datoen. Er planen tom, fylles første fase inn med oppstartsdatoen, så kalenderen åpner i riktig måned.
+- **Fra- og til-dato per fase.** Ingen uker. Begge dagene teller med. Velger de en fra-dato uten til-dato, settes til-dato lik fra-dato. Faser som ikke er aktuelle, står tomme. Faser kan gå samtidig.
+- **Tidslinjen vises hele tiden**, også før noe er fylt inn. Faser uten datoer står med en stiplet rad og teksten «Ikke fylt inn». Uttørking og venting vises med striper, så du ser hvor tiden går med til venting.
+- **Ferdigdatoen regnes ut fra planen**, både i nettsiden og i databasen. Det er den siste til-datoen. Leverandøren skriver den ikke selv, så plan og ferdigdato kan ikke vise forskjellige ting. Byggetiden vises i dager fra oppstart.
+- **Hos deg** står planene på samme kalender. Den som blir ferdig først, får merket «Ferdig først». Merket står også på tilbudskortet og i tabellen under «Pris per post», der det er en egen rad «Ferdig».
+- **Påkrevd som standard.** Du kan krysse det av på steg 4 i små saker. Da oppgir leverandøren bare tidligste oppstart og ferdigdato. Valget låses når anbudet sendes ut.
 
 **Legg i kalender:** Ved befaring og tilbudsfrist er det en knapp som laster ned en kalenderfil (.ics). Den åpnes i Outlook, iPhone, Google Kalender og de fleste andre kalendere, med påminnelse dagen før. Endres befaringen senere, må leverandøren trykke på knappen igjen. Da oppdateres avtalen i stedet for at det blir to.
 
@@ -248,7 +248,7 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Leverandør får vite hvem som spurte | Leverandørene ser bare den publiserte teksten, aldri hvem som spurte. Du kan skrive om spørsmålet før du publiserer. |
 | Svar endres i ettertid | Publiserte svar og avklaringer kan ikke endres eller slettes, heller ikke av deg. |
 | Leverandør fyller portalen med spørsmål | Maks 20 spørsmål per leverandør, og bare frem til frist for spørsmål. |
-| Ufullstendige tilbud | Databasen avviser tilbud uten byggetid, oppstart, timepris og bekreftelse av kravene. |
+| Ufullstendige tilbud | Databasen avviser tilbud uten oppstart, ferdigdato, timepris og bekreftelse av kravene. |
 | Noen stjeler passordet ditt | Alt krever tofaktor. Uten det ser du ingenting, selv med riktig passord. |
 | Tilbud etter fristen | Databasen avviser det, uansett hva nettsiden sier. |
 | Tildeling uten grunn | Velger du ikke laveste tilbud, må du skrive begrunnelse. Det lagres. |
@@ -260,7 +260,7 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Leverandør overser vedlegg som kom etter utsending | Rød boks øverst på siden, rød ramme på filene, og de må bekrefte at de har sett dem før de sender. |
 | Presiseringer endres etter at tilbud er gitt | Presiseringene låses i databasen når anbudet sendes ut, sammen med beskrivelse og vilkår. |
 | En mengde eller pris leses feil | Tall leses likt i nettsiden og databasen: `1200`, `1 200`, `1.200` og `7,2` virker alle. Databasen sender ikke ut anbud der en mengde ikke er et tall. |
-| Byggetid og fremdriftsplan stemmer ikke | Byggetiden regnes ut fra planen i databasen. Tallet fra nettleseren brukes ikke. |
+| Ferdigdato og fremdriftsplan stemmer ikke | Ferdigdatoen og antall dager regnes ut fra planen i databasen. Tallene fra nettleseren brukes ikke. |
 | Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 
 ## Hva som er testet – og hva som ikke er det

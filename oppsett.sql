@@ -236,9 +236,10 @@ create table public.tilbud (
   priser        jsonb not null,        -- {"<post-id>": enhetspris eks. mva}
   forbehold     text not null default '',              -- Generelle forbehold
   forbehold_bygg jsonb not null default '{}'::jsonb,  -- {"<bygg-id>": "forbehold for dette bygget"}
-  byggetid_uker numeric(6,1) not null,              -- Regnes ut fra fremdriftsplanen når den er påkrevd
-  -- Fremdriftsplan for hele saken: {"faser":[{"id":"rigg","start":1,"uker":0.5}], "kommentar":"..."}
-  -- start = uke nr. regnet fra oppstart (uke 1). Faser som ikke er aktuelle, er utelatt.
+  ferdig        date not null,                      -- Når alt er ferdig. Siste dato i fremdriftsplanen når den er påkrevd.
+  byggetid_dager integer not null,                  -- Kalenderdager fra oppstart til ferdig, begge dager med. Regnes ut på serveren.
+  -- Fremdriftsplan for hele saken: {"faser":[{"id":"rigg","fra":"2027-01-11","til":"2027-01-12"}], "kommentar":"..."}
+  -- Begge datoene tas med. Faser som ikke er aktuelle, er utelatt.
   fremdrift     jsonb,
   oppstart      date not null,
   timepris      numeric(10,2) not null,              -- For tilleggsarbeid, eks. mva
@@ -805,7 +806,7 @@ begin
       'firmanavn', t.firmanavn, 'orgnr', t.orgnr, 'kontakt', t.kontakt,
       'telefon', t.telefon, 'epost', t.epost, 'priser', t.priser,
       'forbehold', t.forbehold, 'forbehold_bygg', t.forbehold_bygg,
-      'byggetid_uker', t.byggetid_uker, 'oppstart', t.oppstart, 'timepris', t.timepris, 'fremdrift', t.fremdrift,
+      'ferdig', t.ferdig, 'byggetid_dager', t.byggetid_dager, 'oppstart', t.oppstart, 'timepris', t.timepris, 'fremdrift', t.fremdrift,
       'bekreftet', t.bekreftet, 'sum_eks_mva', t.sum_eks_mva, 'levert', t.levert) end
   );
 end $$;
@@ -818,9 +819,9 @@ declare
   total numeric := 0; v_priser jsonb := '{}'::jsonb; mangler int := 0;
   v_orgnr text := regexp_replace(coalesce(p_tilbud->>'orgnr', ''), '\s', '', 'g');
   v_levert timestamptz;
-  v_byggetid numeric; v_timepris numeric; v_oppstart date;
+  v_ferdig date; v_dager integer; v_timepris numeric; v_oppstart date;
   v_fb jsonb := '{}'::jsonb; fb_tekst text;
-  v_fremdrift jsonb; v_faser jsonb := '[]'::jsonb; fase jsonb; fid text; v_start numeric; v_uker numeric; v_slutt numeric := 0;
+  v_fremdrift jsonb; v_faser jsonb := '[]'::jsonb; fase jsonb; fid text; v_fra date; v_til date;
 begin
   inv := tilbud_finn(p_kode);
   if inv.id is null then
@@ -837,38 +838,48 @@ begin
     return jsonb_build_object('ok', false, 'feil', 'Organisasjonsnummeret er ikke gyldig.');
   end if;
 
-  -- Gjennomføring: byggetid, oppstart og timepris er påkrevd
-  begin v_byggetid := (p_tilbud->>'byggetid_uker')::numeric; exception when others then v_byggetid := null; end;
+  -- Gjennomføring: oppstart, ferdig og timepris er påkrevd
+  begin v_ferdig := (p_tilbud->>'ferdig')::date;               exception when others then v_ferdig := null; end;
   begin v_timepris := (p_tilbud->>'timepris')::numeric;      exception when others then v_timepris := null; end;
   begin v_oppstart := (p_tilbud->>'oppstart')::date;          exception when others then v_oppstart := null; end;
+  if v_oppstart is null then
+    return jsonb_build_object('ok', false, 'feil', 'Oppgi når dere kan starte.');
+  end if;
 
-  -- Fremdriftsplan: faste faser for hele saken. Byggetiden regnes ut her, ut fra planen.
+  -- Fremdriftsplan: faste faser for hele saken, med datoer. Ferdigdatoen regnes ut her, ut fra planen.
   if a.krev_fremdrift then
+    v_ferdig := null;
     foreach fid in array array['rigg','riving','torking','oppbygging','overflater','ferdig'] loop
       select x into fase from jsonb_array_elements(case when jsonb_typeof(p_tilbud->'fremdrift'->'faser') = 'array'
         then p_tilbud->'fremdrift'->'faser' else '[]'::jsonb end) x where x->>'id' = fid limit 1;
       continue when fase is null;
-      begin v_start := (fase->>'start')::numeric; v_uker := round((fase->>'uker')::numeric, 1);
-      exception when others then v_start := null; v_uker := null; end;
-      if v_start is null or v_uker is null or v_start < 1 or v_start > 104 or v_start <> trunc(v_start) or v_uker <= 0 or v_uker > 104 then
-        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. Startuke må være et helt tall fra 1, og varighet må være mer enn 0 uker.');
+      begin v_fra := (fase->>'fra')::date; v_til := (fase->>'til')::date;
+      exception when others then v_fra := null; v_til := null; end;
+      if v_fra is null or v_til is null then
+        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. Hver fase trenger både fra- og til-dato.');
       end if;
-      v_faser := v_faser || jsonb_build_array(jsonb_build_object('id', fid, 'start', v_start, 'uker', v_uker));
-      v_slutt := greatest(v_slutt, v_start - 1 + v_uker);
+      if v_fra < v_oppstart then
+        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. Ingen fase kan starte før tidligste oppstart.');
+      end if;
+      if v_til < v_fra then
+        return jsonb_build_object('ok', false, 'feil', 'Sjekk fremdriftsplanen. En fase kan ikke slutte før den starter.');
+      end if;
+      v_faser := v_faser || jsonb_build_array(jsonb_build_object('id', fid, 'fra', v_fra, 'til', v_til));
+      v_ferdig := greatest(v_ferdig, v_til);
     end loop;
     if jsonb_array_length(v_faser) = 0 then
       return jsonb_build_object('ok', false, 'feil', 'Fyll ut fremdriftsplanen.');
     end if;
-    v_byggetid := v_slutt;
     v_fremdrift := jsonb_build_object('faser', v_faser,
       'kommentar', left(btrim(coalesce(p_tilbud->'fremdrift'->>'kommentar', '')), 1000));
   end if;
-  if v_byggetid is null or v_byggetid <= 0 or v_byggetid > 520 then
-    return jsonb_build_object('ok', false, 'feil', 'Oppgi byggetid i uker.');
+  if v_ferdig is null or v_ferdig < v_oppstart then
+    return jsonb_build_object('ok', false, 'feil', 'Oppgi når arbeidet er ferdig. Datoen kan ikke være før oppstart.');
   end if;
-  if v_oppstart is null then
-    return jsonb_build_object('ok', false, 'feil', 'Oppgi når dere kan starte.');
+  if v_ferdig - v_oppstart >= 730 then
+    return jsonb_build_object('ok', false, 'feil', 'Ferdig dato kan ikke være mer enn to år etter oppstart.');
   end if;
+  v_dager := v_ferdig - v_oppstart + 1;
   if v_timepris is null or v_timepris < 0 then
     return jsonb_build_object('ok', false, 'feil', 'Oppgi timepris for tilleggsarbeid.');
   end if;
@@ -903,20 +914,20 @@ begin
   end if;
 
   insert into tilbud (invitasjon_id, anbud_id, eier, firmanavn, orgnr, kontakt, telefon, epost,
-                      priser, forbehold, forbehold_bygg, byggetid_uker, fremdrift, oppstart, timepris, bekreftet, sum_eks_mva)
+                      priser, forbehold, forbehold_bygg, ferdig, byggetid_dager, fremdrift, oppstart, timepris, bekreftet, sum_eks_mva)
   values (inv.id, a.id, a.eier, btrim(p_tilbud->>'firmanavn'), v_orgnr, btrim(p_tilbud->>'kontakt'),
           nullif(btrim(p_tilbud->>'telefon'), ''), nullif(btrim(p_tilbud->>'epost'), ''),
-          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_byggetid, v_fremdrift, v_oppstart, v_timepris, true, total)
+          v_priser, btrim(coalesce(p_tilbud->>'forbehold', '')), v_fb, v_ferdig, v_dager, v_fremdrift, v_oppstart, v_timepris, true, total)
   on conflict (invitasjon_id) do update set
     firmanavn = excluded.firmanavn, orgnr = excluded.orgnr, kontakt = excluded.kontakt,
     telefon = excluded.telefon, epost = excluded.epost, priser = excluded.priser,
     forbehold = excluded.forbehold, forbehold_bygg = excluded.forbehold_bygg,
-    byggetid_uker = excluded.byggetid_uker, fremdrift = excluded.fremdrift, oppstart = excluded.oppstart, timepris = excluded.timepris,
+    ferdig = excluded.ferdig, byggetid_dager = excluded.byggetid_dager, fremdrift = excluded.fremdrift, oppstart = excluded.oppstart, timepris = excluded.timepris,
     bekreftet = excluded.bekreftet, sum_eks_mva = excluded.sum_eks_mva,
     levert = now(), antall_innsendinger = tilbud.antall_innsendinger + 1
   returning tilbud.levert into v_levert;
 
-  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'byggetid_uker', v_byggetid, 'levert', v_levert,
+  return jsonb_build_object('ok', true, 'sum_eks_mva', total, 'ferdig', v_ferdig, 'byggetid_dager', v_dager, 'levert', v_levert,
     'kvittering', upper(substr(md5(inv.id::text || v_levert::text), 1, 8)));
 end $$;
 
