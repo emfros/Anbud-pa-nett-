@@ -152,11 +152,24 @@ td.lo { background: var(--ok-50); color: var(--ok); font-weight: 700 }
 /* flytting: håndtak og raden som dras */
 .bygg-liste { display: grid; gap: 18px }
 .nr { display: flex; align-items: center; gap: 2px }
-.dra { width: 26px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--n400); font-size: 18px; line-height: 1;
+.dra { width: 30px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--n500); font-size: 20px; line-height: 1;
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; flex: none }
-.dra:hover, .dra:focus-visible { background: var(--n100); color: var(--n800) }
-.drar { position: relative; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,.16); outline: 2px solid var(--red-600); outline-offset: -2px }
-.bygg.drar { outline-offset: 0 }
+.dra:hover, .dra:focus-visible { background: var(--red-100); color: var(--red-700) }
+/* raden markeres når pekeren står på håndtaket, så man ser hva man tar tak i */
+.post:has(> .nr .dra:hover) { background: var(--n50) }
+.bygg:has(> .bygg-h .dra:hover) { border-color: var(--red-300) }
+/* plassen der raden havner når man slipper */
+.plass { background: var(--red-50) !important; outline: 2px dashed var(--red-600); outline-offset: -3px; border-radius: 10px }
+.plass > * { visibility: hidden }
+.bygg.plass { border-color: transparent; border-radius: 16px }
+/* den løftede kopien som følger pekeren */
+.drag-spokelse { position: fixed; z-index: 1000; pointer-events: none; margin: 0; opacity: .88; background: var(--n0); border: 1px solid var(--red-600);
+  border-radius: 12px; box-shadow: 0 18px 40px rgba(0,0,0,.22), 0 2px 6px rgba(0,0,0,.12); transform: translate(14px, -6px) scale(1.02) rotate(-.6deg); transition: transform .12s ease }
+.drag-spokelse.slipper { transition: top .16s ease, left .16s ease, transform .16s ease, opacity .16s ease; transform: none; opacity: 1 }
+/* bygg slås sammen til overskriften mens man flytter dem */
+.samlet .tw, .samlet .bygg > .row { display: none }
+.flyttet-na { animation: flyttet 1.3s ease }
+@keyframes flyttet { 0%, 35% { box-shadow: inset 0 0 0 2px var(--red-600); background: var(--red-50) } 100% { box-shadow: inset 0 0 0 0 transparent } }
 body.drar-na, body.drar-na * { cursor: grabbing !important; user-select: none; -webkit-user-select: none }
 
 /* leverandørskjema */
@@ -2072,60 +2085,107 @@ document.addEventListener('click', e => {
 function keep() { S._scroll = window.scrollY; render(); }
 
 /* ---------- flytt poster og bygg i utkastet ----------
-   Dra i håndtaket ⠿. Virker med mus, finger og penn (pointer events).
-   Raden flyttes i siden mens man drar. Når man slipper, leses den nye rekkefølgen
-   og lagres i utkastet. Poster flyttes bare innenfor sitt eget bygg.
-   Piltastene opp og ned på håndtaket flytter ett steg. */
+   Ta tak i håndtaket ⠿ og dra. Virker med mus, finger og penn (pointer events).
+   - Raden løftes opp som en litt gjennomsiktig kopi som følger pekeren.
+   - En stiplet rød plass viser hvor raden havner. De andre radene glir unna.
+   - Bygg slås sammen til bare overskriften mens man drar, så de er lette å flytte.
+   - Når man slipper, glir kopien på plass, og raden blinker kort.
+   Poster flyttes bare innenfor sitt eget bygg. Piltastene opp og ned på håndtaket flytter ett steg. */
 let drag = null;
 const draRader = d => [...d.liste.children].filter(x => x.matches(d.type === 'bygg' ? '.bygg' : '.post:not(.head)'));
+const radMedId = id => document.querySelector(`.post[data-id="${CSS.escape(id)}"], .bygg[data-id="${CSS.escape(id)}"]`);
+// Posisjonen uten glide-animasjonen som pågår, så radene ikke hopper frem og tilbake
+const toppUtenGlid = x => { const r = x.getBoundingClientRect(), t = getComputedStyle(x).transform;
+  return { top: r.top - (t && t !== 'none' ? new DOMMatrix(t).m42 : 0), h: r.height }; };
 function flyttTil(type, bi, ids) {
   const u = S.utkast, fra = type === 'bygg' ? u.bygg : u.bygg[bi].poster;
   const ny = ids.map(id => fra.find(x => x.id === id));
   if (ny.length !== fra.length || ny.some(x => !x) || ny.every((x, i) => x === fra[i])) return false;
   fra.splice(0, fra.length, ...ny); return true;
 }
+function blink(id) { const el = radMedId(id); if (!el) return;
+  el.classList.remove('flyttet-na'); void el.offsetWidth; el.classList.add('flyttet-na'); setTimeout(() => el.classList.remove('flyttet-na'), 1400); }
+
 document.addEventListener('pointerdown', e => {
-  const h = e.target.closest('[data-dra]'); if (!h || e.button > 0 || S.view !== 'rediger') return;
-  const type = h.dataset.dra, rad = h.closest(type === 'bygg' ? '.bygg' : '.post');
+  const h = e.target.closest('[data-dra]'); if (!h || e.button > 0 || S.view !== 'rediger' || drag) return;
   e.preventDefault(); document.activeElement?.blur?.();
-  drag = { type, rad, liste: rad.parentElement, y: e.clientY, y0: e.clientY, flyttet: false, bi: type === 'post' ? +rad.parentElement.dataset.bi : null };
-  rad.classList.add('drar'); document.body.classList.add('drar-na');
+  const type = h.dataset.dra, rad = h.closest(type === 'bygg' ? '.bygg' : '.post'), liste = rad.parentElement, r = rad.getBoundingClientRect();
+  // Kopien som følger pekeren. Et bygg vises som overskriften og antall poster.
+  let g;
+  if (type === 'bygg') { const n = rad.querySelectorAll('.post[data-id]').length;
+    g = document.createElement('div'); g.className = 'bygg'; g.appendChild(rad.querySelector('.bygg-h').cloneNode(true));
+    g.insertAdjacentHTML('beforeend', `<div class="small muted" style="padding:8px 14px">${n} ${n === 1 ? 'post' : 'poster'}</div>`); }
+  else g = rad.cloneNode(true);
+  const fra = rad.querySelectorAll('input, select'), til = g.querySelectorAll('input, select');
+  til.forEach((x, i) => { x.value = fra[i].value; x.tabIndex = -1; });
+  g.classList.add('drag-spokelse'); g.removeAttribute('data-id'); g.setAttribute('aria-hidden', 'true');
+  Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px' });
+  document.body.appendChild(g);
+  rad.classList.add('plass'); document.body.classList.add('drar-na');
+  drag = { type, rad, liste, g, dy: e.clientY - r.top, y: e.clientY, y0: e.clientY, flyttet: false, bi: type === 'post' ? +liste.dataset.bi : null };
   // Siden ruller når man drar nær kanten, men først når man faktisk har begynt å dra
-  const rull = () => { if (!drag) return; const kant = 70, y = drag.y;
-    if (!drag.flyttet) return requestAnimationFrame(rull);
-    if (y < kant) window.scrollBy(0, -Math.ceil((kant - y) / 5)); else if (y > innerHeight - kant) window.scrollBy(0, Math.ceil((y - innerHeight + kant) / 5));
-    plasser(); requestAnimationFrame(rull); };
+  const rull = () => { const d = drag; if (!d || d.g !== g) return; const kant = 70, y = d.y;
+    if (d.flyttet) { if (y < kant) window.scrollBy(0, -Math.ceil((kant - y) / 5)); else if (y > innerHeight - kant) window.scrollBy(0, Math.ceil((y - innerHeight + kant) / 5)); plasser(); }
+    requestAnimationFrame(rull); };
   requestAnimationFrame(rull);
 });
-// Flytter raden foran den første raden der pekeren er over midten
-function plasser() {
-  const d = drag; if (!d) return;
-  const andre = draRader(d).filter(x => x !== d.rad);
-  const foran = andre.find(x => { const r = x.getBoundingClientRect(); return d.y < r.top + r.height / 2; });
-  const sist = andre[andre.length - 1];
-  if (foran) { if (d.rad.nextElementSibling !== foran) d.liste.insertBefore(d.rad, foran); }
-  else if (sist && d.rad.previousElementSibling !== sist) sist.after(d.rad);
+function startFlytt(d) {
+  d.flyttet = true;
+  if (d.type === 'bygg') {   // slå sammen byggene, og hold plassen under pekeren
+    const før = d.rad.getBoundingClientRect().top; d.liste.classList.add('samlet');
+    window.scrollBy(0, d.rad.getBoundingClientRect().top - før); d.dy = Math.min(d.dy, d.g.offsetHeight / 2);
+  }
 }
-document.addEventListener('pointermove', e => { if (!drag) return; e.preventDefault(); drag.y = e.clientY;
-  if (Math.abs(drag.y - drag.y0) > 6) drag.flyttet = true; if (drag.flyttet) plasser(); }, { passive: false });
+// Flytter plassen foran den første raden der midten av kopien er over midten av raden
+function plasser() {
+  const d = drag; if (!d || !d.flyttet) return;
+  const midt = d.y - d.dy + d.g.offsetHeight / 2;
+  const andre = draRader(d).filter(x => x !== d.rad);
+  const foran = andre.find(x => { const p = toppUtenGlid(x); return midt < p.top + p.h / 2; });
+  const sist = andre[andre.length - 1];
+  if (foran ? d.rad.nextElementSibling === foran : !sist || d.rad.previousElementSibling === sist) return;
+  const før = new Map(andre.map(x => [x, x.getBoundingClientRect().top]));
+  if (foran) d.liste.insertBefore(d.rad, foran); else sist.after(d.rad);
+  nyttNummer(d);
+  // De andre radene glir til ny plass i stedet for å hoppe
+  andre.forEach(x => { x.style.transition = 'none'; x.style.transform = '';
+    const dy = før.get(x) - x.getBoundingClientRect().top; if (!dy) return;
+    x.style.transform = `translateY(${dy}px)`; void x.offsetWidth;
+    x.style.transition = 'transform .16s ease'; x.style.transform = ''; });
+}
+// Nummeret på kopien viser hvilket nummer raden får der plassen står nå
+// (de andre radene får også nytt nummer med en gang)
+function nyttNummer(d) { const nr = i => d.type === 'bygg' ? i + 1 : postNr(d.bi, i);
+  draRader(d).forEach((x, i) => { const el = x === d.rad ? d.g.querySelector('.pnr') : x.querySelector(d.type === 'bygg' ? '.bygg-h .pnr' : '.nr .pnr'); if (el) el.textContent = nr(i); }); }
+document.addEventListener('pointermove', e => { const d = drag; if (!d) return; e.preventDefault(); d.y = e.clientY;
+  if (!d.flyttet && Math.abs(d.y - d.y0) > 4) startFlytt(d);
+  d.g.style.top = (d.y - d.dy) + 'px'; plasser(); }, { passive: false });
 function slipp() {
   const d = drag; if (!d) return; drag = null;
-  d.rad.classList.remove('drar'); document.body.classList.remove('drar-na');
-  const endret = flyttTil(d.type, d.bi, draRader(d).map(x => x.dataset.id));
-  if (endret) { keep(); const h = document.querySelector(`[data-dra][data-id="${CSS.escape(d.rad.dataset.id)}"]`); h?.focus({ preventScroll: true }); }
+  const r = d.rad.getBoundingClientRect();
+  d.g.classList.add('slipper'); Object.assign(d.g.style, { top: r.top + 'px', left: r.left + 'px' });
+  setTimeout(() => {
+    d.g.remove(); d.rad.classList.remove('plass'); d.liste.classList.remove('samlet'); document.body.classList.remove('drar-na');
+    draRader(d).forEach(x => { x.style.transform = ''; x.style.transition = ''; });
+    const id = d.rad.dataset.id, endret = flyttTil(d.type, d.bi, draRader(d).map(x => x.dataset.id));
+    if (endret) keep();
+    // Hold raden der den ble sluppet, også når byggene foldes ut igjen
+    const el = radMedId(id); if (el) window.scrollBy(0, el.getBoundingClientRect().top - r.top);
+    if (endret) blink(id);
+  }, 170);
 }
 document.addEventListener('pointerup', slipp);
 document.addEventListener('pointercancel', slipp);
 window.addEventListener('blur', slipp);
 document.addEventListener('keydown', e => {
-  const h = e.target.closest?.('[data-dra]'); if (!h || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  const h = e.target.closest?.('[data-dra]'); if (!h || drag || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
   e.preventDefault();
   const type = h.dataset.dra, rad = h.closest(type === 'bygg' ? '.bygg' : '.post'), liste = rad.parentElement;
   const ids = draRader({ type, liste }).map(x => x.dataset.id), i = ids.indexOf(h.dataset.id), j = i + (e.key === 'ArrowUp' ? -1 : 1);
   if (j < 0 || j >= ids.length) return;
   [ids[i], ids[j]] = [ids[j], ids[i]];
   if (flyttTil(type, type === 'post' ? +liste.dataset.bi : null, ids)) {
-    keep(); document.querySelector(`[data-dra][data-id="${CSS.escape(h.dataset.id)}"]`)?.focus();
+    keep(); document.querySelector(`[data-dra][data-id="${CSS.escape(h.dataset.id)}"]`)?.focus(); blink(h.dataset.id);
   }
 });
 // Utkastet slik det var sist det ble åpnet eller lagret. Brukes til å advare før endringer går tapt.
