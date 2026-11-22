@@ -134,11 +134,14 @@ td.lo { background: var(--ok-50); color: var(--ok); font-weight: 700 }
 .pnr { color: var(--n500); font-size: 13px; white-space: nowrap }
 
 /* bygg og poster (saksbehandler) */
-.bygg { border: 1px solid var(--n200); border-radius: 16px; overflow: hidden; display: grid; min-width: 0 }
+.bygg { border: 1px solid var(--n200); border-radius: 16px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0 }
 .bygg .tw { border: 0; border-radius: 0 }
-.bygg-h { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--red-50); flex-wrap: wrap }
+.bygg-h { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--red-50) }
+/* alt på én linje, også på mobil: navnet krymper, knappen står til høyre */
+.bygg-h .nr, .bygg-h > .pnr { flex: none }
+.bygg-h button { flex: none; white-space: nowrap; margin-left: auto }
 .bygg-h .pnr { color: var(--red-600); font-weight: 700; font-size: 15px }
-.bygg-h input { max-width: 280px; font-weight: 700; font-size: 16px; border-color: transparent; background: transparent; height: 38px }
+.bygg-h input { flex: 1 1 0; width: 0; min-width: 0; max-width: 280px; font-weight: 700; font-size: 16px; border-color: transparent; background: transparent; height: 38px }
 .bygg-h input:hover, .bygg-h input:focus { background: var(--n0); border-color: var(--n300) }
 .bygg-h h3 { color: var(--n900) }
 .post { display: grid; grid-template-columns: 58px 150px minmax(160px,1fr) 90px 84px 120px 110px 36px; gap: 8px; padding: 8px 12px; align-items: center;
