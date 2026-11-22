@@ -30,7 +30,7 @@ Nettside der Storebrand og takstmenn lager anbud på byggskader, leverandører g
 15. **Tall:** `parseNum` (index.html) og `mengde_tall` (oppsett.sql) må lese tall likt. Punktum foran nøyaktig tre sifre er tusenskille. Mengder lagres som tekst og renses med `renMengde` før lagring.
 16. **Standardtekster:** `ARBEIDSTEKSTER` er knapper som legger en ferdig linje inn i arbeidsomfanget (feltet `beskrivelse`). `STANDARDTEKSTER` er presiseringer med avkrysning (eget felt `standardtekster`). Begge skrives slik at ansvaret ligger hos entreprenøren, aldri hos Storebrand. Linjer fra `ARBEIDSTEKSTER` tas ut av statusfilen til forsikringstaker (`utenArbeidstekster`).
 17. **Status til forsikringstaker:** Statusfilen (`vStatus`) skal aldri vise priser, kalkyle, besparelse eller andre leverandører enn den som har fått oppdraget. Kundens navn finnes ikke i portalen. Skriv for en privatperson: enkle ord, ingen fagord.
-18. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud, laster opp vedlegg og lager kode, leverandør stiller spørsmål, fyller ut fremdriftsplan og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
+18. **Test før du lagrer:** Klikk gjennom hele løpet (saksbehandler lager anbud og flytter poster og bygg, laster opp vedlegg og lager kode, leverandør stiller spørsmål, fyller ut fremdriftsplan og leverer, takstmann anbefaler, admin tildeler, årsoversikt og brukere) på mobil- og PC-bredde, uten feil i konsollen.
 
 ## Git på Emils Mac
 

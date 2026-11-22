@@ -129,7 +129,7 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
 3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
 4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Under arbeidsomfanget ligger knapper med **standardtekster** (TEK17, SHA-plan, SJA, avfallsplan, våtrom, asbest, FDV og flere). Trykk på en knapp, så settes teksten inn som eget avsnitt der markøren står i arbeidsomfanget. Står ikke markøren der, havner teksten nederst. Trykk en gang til, så tas den bort. Tekstene endrer du i `ARBEIDSTEKSTER` øverst i `index.html`. Faste krav står alltid med. Her krysser du også av for **presiseringer** (ferdige setninger om hva prisen omfatter, varsling, fukt, standardheving og faktura) og for om leverandøren må fylle ut fremdriftsplan. Fremdriftsplan er på som standard. Presiseringene endrer du i `STANDARDTEKSTER` øverst i `index.html`.
-5. **Bygninger og poster** – mengder per post og din kalkyle.
+5. **Bygninger og poster** – mengder per post og din kalkyle. Dra i håndtaket ⠿ for å endre rekkefølgen på bygg og poster. Poster flyttes innenfor sitt eget bygg. Nummereringen følger med.
 6. **Vedlegg** – takstrapport, bilder og andre dokumenter (se «Vedlegg» under).
 7. **Tildeling** – hvordan leverandør velges.
 
