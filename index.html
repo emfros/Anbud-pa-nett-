@@ -141,14 +141,23 @@ td.lo { background: var(--ok-50); color: var(--ok); font-weight: 700 }
 .bygg-h input { max-width: 280px; font-weight: 700; font-size: 16px; border-color: transparent; background: transparent; height: 38px }
 .bygg-h input:hover, .bygg-h input:focus { background: var(--n0); border-color: var(--n300) }
 .bygg-h h3 { color: var(--n900) }
-.post { display: grid; grid-template-columns: 38px 150px minmax(160px,1fr) 90px 84px 120px 110px 36px; gap: 8px; padding: 8px 12px; align-items: center;
-  border-bottom: 1px solid var(--n200); min-width: 870px }
+.post { display: grid; grid-template-columns: 58px 150px minmax(160px,1fr) 90px 84px 120px 110px 36px; gap: 8px; padding: 8px 12px; align-items: center;
+  border-bottom: 1px solid var(--n200); min-width: 890px; background: var(--n0) }
 .post.head { font-size: 12px; font-weight: 600; color: var(--n500); padding-block: 8px }
 .post input, .post select { height: 38px; padding: 0 10px; border-radius: 10px }
 .post .ls { text-align: right; font-weight: 600; color: var(--n900) }
 .post button.ghost { width: 36px; height: 36px; padding: 0; border-radius: 10px; font-size: 20px; color: var(--n500) }
 .post button.ghost:hover { background: var(--red-50); color: var(--red-700) }
 .post button.ghost:disabled { background: none; color: var(--n300) }
+/* flytting: håndtak og raden som dras */
+.bygg-liste { display: grid; gap: 18px }
+.nr { display: flex; align-items: center; gap: 2px }
+.dra { width: 26px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--n400); font-size: 18px; line-height: 1;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; flex: none }
+.dra:hover, .dra:focus-visible { background: var(--n100); color: var(--n800) }
+.drar { position: relative; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,.16); outline: 2px solid var(--red-600); outline-offset: -2px }
+.bygg.drar { outline-offset: 0 }
+body.drar-na, body.drar-na * { cursor: grabbing !important; user-select: none; -webkit-user-select: none }
 
 /* leverandørskjema */
 .lev-post { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; padding: 14px 16px; border-bottom: 1px solid var(--n200); align-items: center }
@@ -1164,12 +1173,14 @@ function vListe() {
 function vRediger() {
   const u = S.utkast;
   const ks = sumAnbud(u.bygg, u.kalkyle);
-  const bygg = u.bygg.map((b, bi) => `<div class="bygg">
-      <div class="bygg-h"><span class="pnr">${bi + 1}</span><input data-b="${bi}" data-bf="navn" value="${esc(b.navn)}" aria-label="Navn på bygg">
+  // Håndtak for å flytte. Vises bare når det finnes mer enn én å flytte mellom.
+  const dra = (type, id, navn, flere) => flere ? `<button type="button" class="dra" data-dra="${type}" data-id="${esc(id)}" aria-label="Flytt ${navn}. Dra, eller bruk piltastene opp og ned." title="Dra for å flytte">⠿</button>` : '';
+  const bygg = u.bygg.map((b, bi) => `<div class="bygg" data-id="${esc(b.id)}">
+      <div class="bygg-h"><span class="nr">${dra('bygg', b.id, 'bygg ' + (bi + 1), u.bygg.length > 1)}<span class="pnr">${bi + 1}</span></span><input data-b="${bi}" data-bf="navn" value="${esc(b.navn)}" aria-label="Navn på bygg">
         ${u.bygg.length > 1 ? `<button class="ghost danger small" data-act="slettBygg" data-bi="${bi}">Fjern bygg</button>` : ''}</div>
-      <div class="tw"><div class="post head"><span>Nr</span><span>Fag</span><span>Beskrivelse</span><span>Mengde</span><span>Enhet</span><span>Din kalkyle</span><span class="ls">Sum</span><span></span></div>
+      <div class="tw" data-bi="${bi}"><div class="post head"><span>Nr</span><span>Fag</span><span>Beskrivelse</span><span>Mengde</span><span>Enhet</span><span>Din kalkyle</span><span class="ls">Sum</span><span></span></div>
       ${b.poster.map((p, pi) => { const e = parseNum(u.kalkyle[p.id]), m = parseNum(p.mengde);
-        return `<div class="post"><span class="pnr">${postNr(bi, pi)}</span>
+        return `<div class="post" data-id="${esc(p.id)}"><span class="nr">${dra('post', p.id, 'post ' + postNr(bi, pi), b.poster.length > 1)}<span class="pnr">${postNr(bi, pi)}</span></span>
           <select data-p="${bi},${pi}" data-pf="fag" aria-label="Fag">${FAG.map(f => `<option ${f === p.fag ? 'selected' : ''}>${f}</option>`).join('')}</select>
           <input data-p="${bi},${pi}" data-pf="beskrivelse" value="${esc(p.beskrivelse)}" placeholder="Hva skal gjøres" aria-label="Beskrivelse">
           <input data-p="${bi},${pi}" data-pf="mengde" value="${esc(p.mengde)}" inputmode="decimal" aria-label="Mengde">
@@ -1213,8 +1224,8 @@ function vRediger() {
       ${stdHtml(u)}
       <label class="bekreft"><input type="checkbox" data-fk ${u.krev_fremdrift ? 'checked' : ''}>
         <span><strong>Leverandøren må fylle ut fremdriftsplan</strong> (anbefalt). En enkel plan i uker for hele saken. Byggetiden regnes ut fra planen, så den stemmer alltid.</span></label>`)}
-    ${steg(5, 'Bygninger og poster', 'Legg inn hvert bygg med poster og mengder. Leverandøren fyller bare inn pris per enhet. Kalkylen din vises aldri for leverandørene.', `
-      ${bygg}
+    ${steg(5, 'Bygninger og poster', 'Legg inn hvert bygg med poster og mengder. Dra i ⠿ for å endre rekkefølgen. Leverandøren fyller bare inn pris per enhet. Kalkylen din vises aldri for leverandørene.', `
+      <div class="bygg-liste">${bygg}</div>
       <div class="row between"><button data-act="nyttBygg">+ Bygg</button>
         <div class="small">Kalkyle eks. mva: <strong class="num" id="kalk-sum">${kr(ks.sum)}</strong> <span id="kalk-mangler" class="muted">${ks.mangler ? `(${ks.mangler} post uten kalkyle)` : ''}</span></div></div>`)}
     ${steg(6, 'Vedlegg', 'Takstrapport, bilder og andre dokumenter. Leverandørene ser disse når anbudet er sendt ut.', u.id
@@ -2059,6 +2070,64 @@ document.addEventListener('click', e => {
   if (h) { if (el.tagName !== 'INPUT') e.preventDefault(); h(); }
 });
 function keep() { S._scroll = window.scrollY; render(); }
+
+/* ---------- flytt poster og bygg i utkastet ----------
+   Dra i håndtaket ⠿. Virker med mus, finger og penn (pointer events).
+   Raden flyttes i siden mens man drar. Når man slipper, leses den nye rekkefølgen
+   og lagres i utkastet. Poster flyttes bare innenfor sitt eget bygg.
+   Piltastene opp og ned på håndtaket flytter ett steg. */
+let drag = null;
+const draRader = d => [...d.liste.children].filter(x => x.matches(d.type === 'bygg' ? '.bygg' : '.post:not(.head)'));
+function flyttTil(type, bi, ids) {
+  const u = S.utkast, fra = type === 'bygg' ? u.bygg : u.bygg[bi].poster;
+  const ny = ids.map(id => fra.find(x => x.id === id));
+  if (ny.length !== fra.length || ny.some(x => !x) || ny.every((x, i) => x === fra[i])) return false;
+  fra.splice(0, fra.length, ...ny); return true;
+}
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('[data-dra]'); if (!h || e.button > 0 || S.view !== 'rediger') return;
+  const type = h.dataset.dra, rad = h.closest(type === 'bygg' ? '.bygg' : '.post');
+  e.preventDefault(); document.activeElement?.blur?.();
+  drag = { type, rad, liste: rad.parentElement, y: e.clientY, y0: e.clientY, flyttet: false, bi: type === 'post' ? +rad.parentElement.dataset.bi : null };
+  rad.classList.add('drar'); document.body.classList.add('drar-na');
+  // Siden ruller når man drar nær kanten, men først når man faktisk har begynt å dra
+  const rull = () => { if (!drag) return; const kant = 70, y = drag.y;
+    if (!drag.flyttet) return requestAnimationFrame(rull);
+    if (y < kant) window.scrollBy(0, -Math.ceil((kant - y) / 5)); else if (y > innerHeight - kant) window.scrollBy(0, Math.ceil((y - innerHeight + kant) / 5));
+    plasser(); requestAnimationFrame(rull); };
+  requestAnimationFrame(rull);
+});
+// Flytter raden foran den første raden der pekeren er over midten
+function plasser() {
+  const d = drag; if (!d) return;
+  const andre = draRader(d).filter(x => x !== d.rad);
+  const foran = andre.find(x => { const r = x.getBoundingClientRect(); return d.y < r.top + r.height / 2; });
+  const sist = andre[andre.length - 1];
+  if (foran) { if (d.rad.nextElementSibling !== foran) d.liste.insertBefore(d.rad, foran); }
+  else if (sist && d.rad.previousElementSibling !== sist) sist.after(d.rad);
+}
+document.addEventListener('pointermove', e => { if (!drag) return; e.preventDefault(); drag.y = e.clientY;
+  if (Math.abs(drag.y - drag.y0) > 6) drag.flyttet = true; if (drag.flyttet) plasser(); }, { passive: false });
+function slipp() {
+  const d = drag; if (!d) return; drag = null;
+  d.rad.classList.remove('drar'); document.body.classList.remove('drar-na');
+  const endret = flyttTil(d.type, d.bi, draRader(d).map(x => x.dataset.id));
+  if (endret) { keep(); const h = document.querySelector(`[data-dra][data-id="${CSS.escape(d.rad.dataset.id)}"]`); h?.focus({ preventScroll: true }); }
+}
+document.addEventListener('pointerup', slipp);
+document.addEventListener('pointercancel', slipp);
+window.addEventListener('blur', slipp);
+document.addEventListener('keydown', e => {
+  const h = e.target.closest?.('[data-dra]'); if (!h || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  e.preventDefault();
+  const type = h.dataset.dra, rad = h.closest(type === 'bygg' ? '.bygg' : '.post'), liste = rad.parentElement;
+  const ids = draRader({ type, liste }).map(x => x.dataset.id), i = ids.indexOf(h.dataset.id), j = i + (e.key === 'ArrowUp' ? -1 : 1);
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  if (flyttTil(type, type === 'post' ? +liste.dataset.bi : null, ids)) {
+    keep(); document.querySelector(`[data-dra][data-id="${CSS.escape(h.dataset.id)}"]`)?.focus();
+  }
+});
 // Utkastet slik det var sist det ble åpnet eller lagret. Brukes til å advare før endringer går tapt.
 const huskUtkast = () => { S.utkastLagret = JSON.stringify(S.utkast); };
 const utkastEndret = () => S.view === 'rediger' && !!S.utkast && JSON.stringify(S.utkast) !== S.utkastLagret;
