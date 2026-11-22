@@ -128,7 +128,7 @@ Senere vil IT trolig at Storebrand-ansatte logger inn med jobbkontoen (Microsoft
 1. **Saken** – skadenummer, skadetype, adresse og hva som skal anskaffes.
 2. **Takstmann og kontakt** – hvem leverandørene sender spørsmål til.
 3. **Befaring og frister** – befaring, frist for spørsmål, tilbudsfrist og vedståelsesfrist (hvor lenge leverandøren må stå ved prisen).
-4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Faste krav står alltid med. Her krysser du også av for om leverandøren må fylle ut fremdriftsplan. Det er på som standard.
+4. **Beskrivelse av arbeidet** – arbeidsomfang og særlige forhold. Under arbeidsomfanget ligger knapper med **standardtekster** (TEK17, SHA-plan, SJA, avfallsplan, våtrom, asbest, FDV og flere). Trykk på en knapp, så settes teksten inn som eget avsnitt der markøren står i arbeidsomfanget. Står ikke markøren der, havner teksten nederst. Trykk en gang til, så tas den bort. Tekstene endrer du i `ARBEIDSTEKSTER` øverst i `index.html`. Faste krav står alltid med. Her krysser du også av for **presiseringer** (ferdige setninger om hva prisen omfatter, varsling, fukt, standardheving og faktura) og for om leverandøren må fylle ut fremdriftsplan. Fremdriftsplan er på som standard. Presiseringene endrer du i `STANDARDTEKSTER` øverst i `index.html`.
 5. **Bygninger og poster** – mengder per post og din kalkyle.
 6. **Vedlegg** – takstrapport, bilder og andre dokumenter (se «Vedlegg» under).
 7. **Tildeling** – hvordan leverandør velges.
@@ -258,6 +258,8 @@ Filer du har lastet opp, blir liggende i bøtta selv om vedleggslisten slettes. 
 | Noen laster opp en farlig eller stor fil | Bøtta tar bare PDF, bilder, Word og Excel, maks 20 MB. Supabase avviser resten, uansett hva nettsiden sier. |
 | Vedlegg forsvinner sporløst etter utsending | Etter utsending kan vedlegg bare fjernes, ikke slettes. Det står igjen når det ble lagt til og fjernet. |
 | Leverandør overser vedlegg som kom etter utsending | Rød boks øverst på siden, rød ramme på filene, og de må bekrefte at de har sett dem før de sender. |
+| Presiseringer endres etter at tilbud er gitt | Presiseringene låses i databasen når anbudet sendes ut, sammen med beskrivelse og vilkår. |
+| En mengde eller pris leses feil | Tall leses likt i nettsiden og databasen: `1200`, `1 200`, `1.200` og `7,2` virker alle. Databasen sender ikke ut anbud der en mengde ikke er et tall. |
 | Byggetid og fremdriftsplan stemmer ikke | Byggetiden regnes ut fra planen i databasen. Tallet fra nettleseren brukes ikke. |
 | Service-nøkkelen lekker | Den brukes bare inne i serverfunksjonen hos Supabase. Den står ikke i nettsiden og ikke i filene på GitHub. |
 

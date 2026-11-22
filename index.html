@@ -189,6 +189,12 @@ label.f.full, .grid2 .full { grid-column: 1 / -1 }
 .krav strong { color: var(--n800) }
 .krav ul, .krav-liste { margin: 0; padding-left: 20px; display: grid; gap: 4px }
 .krav-liste { font-size: 15px }
+.std { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; color: var(--n800) }
+.hurtig { display: grid; gap: 8px; margin-top: -4px }
+.hurtig-rad { display: flex; flex-wrap: wrap; gap: 8px }
+.hurtig-rad button { color: var(--n700); font-weight: 500 }
+.hurtig-rad button.on { background: var(--red-50); border-color: var(--red-600); color: var(--red-700); font-weight: 600 }
+.std input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--red-600) }
 
 /* anbudet slik leverandøren ser det */
 .fakta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 20px; padding-top: 16px; border-top: 1px solid var(--n200) }
@@ -454,6 +460,76 @@ const FASTE_KRAV = [
   'Alle løsninger og materialer skal være anerkjente, i henhold til myndighetskrav og i tråd med god håndverksskikk.',
   'Entreprenøren er ansvarlig for eventuell byggesøknad.'
 ];
+// Presiseringer: ferdige tekster takstmannen kan krysse av for i alle saker.
+// Teksten selv lagres i anbudet (feltet standardtekster), så en senere endring her ikke endrer anbud som er sendt ut.
+// Skrevet slik at ansvaret ligger hos entreprenøren, ikke hos Storebrand.
+const STANDARDTEKSTER = [
+  'Prisene er faste og gjelder til arbeidet er ferdig.',
+  'Prisen omfatter alt arbeid og materiell som trengs for et ferdig og forskriftsmessig resultat, også om det ikke står som egen post.',
+  'Forhold som kunne vært avdekket ved befaring, gir ikke grunnlag for tillegg.',
+  'Avvik i mengder skal varsles skriftlig før arbeidet utføres. Uten varsel gjelder mengdene i anbudet.',
+  'Skjulte skader skal varsles og dokumenteres med bilder før arbeidet fortsetter.',
+  'Entreprenøren skal måle og dokumentere fukt før konstruksjoner lukkes.',
+  'Entreprenøren har ansvar for valg av løsninger, utførelse og egne underleverandører.',
+  'Standardheving dekkes ikke. Ønsker kunden høyere standard, avtales og faktureres det direkte mellom entreprenør og kunde.',
+  'Faktura skal spesifiseres etter postene i anbudet.',
+  'Avfall skal leveres til godkjent mottak. Kvittering legges ved faktura.'
+];
+const stdHtml = u => `<div class="krav"><strong>Presiseringer</strong>
+  <span class="hint">Kryss av det som skal gjelde i denne saken. Leverandøren ser bare det du krysser av.</span>
+  ${STANDARDTEKSTER.map((t, i) => `<label class="std"><input type="checkbox" data-std="${i}" ${(u.standardtekster || []).includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>`;
+// Standardtekster til arbeidsomfanget: [navn på knappen, teksten som legges inn].
+// Takstmannen trykker på en knapp, og teksten legges inn som en egen linje i «Arbeidsomfang». Et trykk til tar den bort.
+// Teksten blir en del av arbeidsomfanget, så den låses sammen med resten når anbudet sendes ut.
+// Skrevet slik at ansvaret ligger hos entreprenøren, ikke hos Storebrand.
+const ARBEIDSTEKSTER = [
+  ['TEK17', 'Det som bygges opp på nytt, skal utføres etter gjeldende byggteknisk forskrift (TEK17).'],
+  ['Likt for likt', 'Skadde bygningsdeler erstattes med tilsvarende kvalitet og utførelse som før skaden.'],
+  ['SHA-plan', 'Entreprenøren skal kartlegge risikoen i arbeidet og lage plan for sikkerhet, helse og arbeidsmiljø (SHA-plan) før oppstart.'],
+  ['SJA', 'Entreprenøren skal gjøre sikker jobb-analyse (SJA) før arbeid med særlig risiko.'],
+  ['Sikringsplan', 'Entreprenøren skal lage en sikringsplan før oppstart. Planen skal vise hvordan bygget, innbo og andre personer sikres mens arbeidet pågår.'],
+  ['Tildekking', 'Entreprenøren skal dekke til og beskytte gulv, innbo og tilstøtende rom mot støv og skader.'],
+  ['Våtrom', 'Våtrom skal utføres etter Byggebransjens våtromsnorm (BVN). Membranen skal dokumenteres med bilder før flislegging.'],
+  ['Rør', 'Rørarbeid skal utføres av godkjent rørlegger. Rørene skal tetthetsprøves før konstruksjonen lukkes.'],
+  ['Elektro', 'Elektrisk arbeid skal utføres av registrert installatør. Samsvarserklæring skal leveres når arbeidet er ferdig.'],
+  ['Varme arbeider', 'Varme arbeider skal utføres av personer med gyldig sertifikat og etter sikkerhetsforskriften for varme arbeider.'],
+  ['Asbest', 'Ved mistanke om asbest skal entreprenøren stanse arbeidet og varsle Storebrand. Asbest skal bare fjernes av firma med tillatelse fra Arbeidstilsynet.'],
+  ['Arbeid i høyden', 'Arbeid i høyden skal sikres etter gjeldende forskrift. Stillas skal kontrolleres før bruk.'],
+  ['Avfallsplan', 'Entreprenøren skal lage avfallsplan og sluttrapport når TEK17 krever det. Avfallet skal sorteres på byggeplassen.'],
+  ['Bilder', 'Entreprenøren skal dokumentere arbeidet med bilder før, under og etter utførelse.'],
+  ['FDV', 'Entreprenøren skal levere FDV-dokumentasjon (forvaltning, drift og vedlikehold) når arbeidet er ferdig.'],
+  ['Ferdigbefaring', 'Entreprenøren skal kalle inn til ferdigbefaring når arbeidet er ferdig.']
+];
+const erArbeidstekst = linje => ARBEIDSTEKSTER.some(([, t]) => t === trim(linje));
+const harArbeidstekst = (beskrivelse, t) => String(beskrivelse || '').split('\n').some(l => trim(l) === t);
+// Tar teksten bort hvis den står der fra før. Ellers settes den inn som eget avsnitt
+// etter linjen markøren står på (pos). Uten markør: nederst. Gir { tekst, pos }, der pos er rett etter det som ble satt inn.
+function vekslArbeidstekst(beskrivelse, t, pos) {
+  const tekst = String(beskrivelse || '').replace(/\s+$/, '');
+  const linjer = tekst ? tekst.split('\n') : [];
+  if (linjer.some(l => trim(l) === t)) { const ut = linjer.filter(l => trim(l) !== t).join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\s+$/g, '');
+    return { tekst: ut, pos: pos == null ? null : Math.min(pos, ut.length) }; }
+  let li = linjer.length - 1;
+  if (pos != null && pos < tekst.length) { let n = 0; li = linjer.findIndex(l => (n += l.length + 1) > pos); }
+  let i = li + 1;
+  if (li >= 0 && !trim(linjer[li])) { linjer.splice(li, 1); i = li; }   // markøren står på en tom linje: bruk den
+  const ny = [t], over = linjer[i - 1], under = linjer[i];
+  if (over !== undefined && trim(over) && !erArbeidstekst(over)) ny.unshift('');
+  if (under !== undefined && trim(under) && !erArbeidstekst(under)) ny.push('');
+  linjer.splice(i, 0, ...ny);
+  const ut = linjer.join('\n').replace(/\n{3,}/g, '\n\n');
+  return { tekst: ut, pos: ut.indexOf(t) + t.length };
+}
+const arbeidHtml = u => `<div class="hurtig full"><span class="hint">Standardtekster. Teksten settes inn som eget avsnitt der markøren står i arbeidsomfanget, ellers nederst. Trykk en gang til for å ta den bort.</span>
+  <div class="hurtig-rad">${ARBEIDSTEKSTER.map(([navn, t], i) => { const paa = harArbeidstekst(u.beskrivelse, t);
+    return `<button type="button" class="small${paa ? ' on' : ''}" data-act="arbeidstekst" data-i="${i}" aria-pressed="${paa}" title="${esc(t)}">${paa ? '✓' : '+'} ${esc(navn)}</button>`; }).join('')}</div></div>`;
+// Oppdaterer knappene uten å tegne hele siden på nytt (da mister man markøren i tekstfeltet)
+function oppdaterArbeidKnapper() {
+  document.querySelectorAll('[data-act="arbeidstekst"]').forEach(b => { const [navn, t] = ARBEIDSTEKSTER[+b.dataset.i], paa = harArbeidstekst(S.utkast.beskrivelse, t);
+    b.classList.toggle('on', paa); b.setAttribute('aria-pressed', paa); b.textContent = (paa ? '✓ ' : '+ ') + navn; });
+}
+// Arbeidsomfanget uten standardtekstene. Brukes i status til forsikringstaker, som ikke skal ha fagord.
+const utenArbeidstekster = beskrivelse => String(beskrivelse || '').split('\n').filter(l => !erArbeidstekst(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 // Fremdriftsplan: faste faser for hele saken. Samme liste står i leverandor_send i oppsett.sql.
 const FASER = [
   { id: 'rigg', navn: 'Rigg og tildekking' },
@@ -501,7 +577,7 @@ function tidslinje(faser, o = {}) {
 const STD_TILDELING = 'Oppdraget tildeles laveste pris blant tilbud som oppfyller kravene. Byggetid og forbehold kan vektlegges.';
 // Feltene i et anbud som lagres. Vilkårene låses når anbudet er sendt ut.
 const ANBUD_FELT = ['skadenr', 'adresse', 'skadetype', 'tittel', 'beskrivelse', 'saerlige_forhold', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf',
-  'befaring', 'oppmote', 'frist_sporsmal', 'frist', 'vedstaelse', 'onsket_ferdig', 'tildelingsregel', 'krev_fremdrift', 'bygg', 'kalkyle', 'kalkyle_sum'];
+  'befaring', 'oppmote', 'frist_sporsmal', 'frist', 'vedstaelse', 'onsket_ferdig', 'tildelingsregel', 'krev_fremdrift', 'standardtekster', 'bygg', 'kalkyle', 'kalkyle_sum'];
 const ENDRES_ETTER_UTSENDING = ['befaring', 'oppmote', 'frist_sporsmal', 'frist', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf'];
 
 /* ---------- små hjelpere ---------- */
@@ -512,7 +588,13 @@ const kr = v => isNum(v) ? 'kr ' + nf.format(Math.round(v)) : '–';
 const kr2 = v => isNum(v) ? nf.format(v) : '–';
 const tall = v => v == null || v === '' ? null : Number(v);
 const isNum = v => typeof v === 'number' && isFinite(v);
-const parseNum = v => { if (typeof v === 'number') return v; const s = String(v ?? '').replace(/\s| /g, '').replace(',', '.'); if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return NaN; return Number(s); };
+// Leser tall slik de skrives på norsk: 1200 · 1 200 · 1.200 · 1.200,50 · 7,2 · 7.2
+// Punktum foran nøyaktig tre sifre er tusenskille (1.200 = 1200). Samme regel står i mengde_tall i oppsett.sql.
+const parseNum = v => { if (typeof v === 'number') return v; let s = String(v ?? '').replace(/[\s\u00A0]/g, '');
+  if (/^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(',', '.'); if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return NaN; return Number(s); };
+// Mengden lagres på én måte (1200 eller 7,2), så nettsiden og databasen alltid leser den likt
+const renMengde = v => { const n = parseNum(v); return isNum(n) ? String(n).replace('.', ',') : String(v ?? '').trim(); };
 const trim = v => String(v ?? '').trim();
 const nyId = p => p + Math.random().toString(36).slice(2, 9);
 const dato = d => d ? new Date(d).toLocaleString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
@@ -569,7 +651,7 @@ const harTilgang = () => ['admin', 'takstmann'].includes(meg()?.rolle);
 const uker = v => isNum(v) ? nf.format(v) + (v === 1 ? ' uke' : ' uker') : '–';
 const tom = () => { const p = meg()?.rolle === 'takstmann' ? meg() : null; return { skadenr: '', adresse: '', skadetype: SKADETYPER[0], tittel: '', beskrivelse: '', saerlige_forhold: '',
   takst_navn: p?.navn || '', takst_firma: p?.firma || '', takst_epost: p?.epost || '', takst_tlf: p?.telefon || '', befaring: '', oppmote: '', frist_sporsmal: '',
-  frist: omEnUke(), vedstaelse: leggTilDager(dagFra(omEnUke()), 60), onsket_ferdig: '', tildelingsregel: STD_TILDELING, krev_fremdrift: true,
+  frist: omEnUke(), vedstaelse: leggTilDager(dagFra(omEnUke()), 60), onsket_ferdig: '', tildelingsregel: STD_TILDELING, krev_fremdrift: true, standardtekster: [],
   bygg: [{ id: nyId('b'), navn: 'Bolighus', poster: [{ id: nyId('p'), fag: 'Tømrer', beskrivelse: '', mengde: '', enhet: 'm²' }] }], kalkyle: {}, status: 'utkast' }; };
 
 /* =====================================================================
@@ -842,6 +924,7 @@ function demoApi() {
   const sjekkDatoer = a => {
     if (a.vedstaelse && a.vedstaelse < dagFra(a.frist)) throw new Error('Vedståelsesfristen kan ikke være før tilbudsfristen.');
     if (a.frist_sporsmal && a.frist_sporsmal > dagFra(a.frist)) throw new Error('Frist for spørsmål må være før tilbudsfristen.');
+    if (a.befaring && new Date(a.befaring) >= new Date(a.frist)) throw new Error('Befaringen må være før tilbudsfristen.');
   };
   const forLeverandor = a => { const { kalkyle, kalkyle_sum, tildelt_invitasjon, tildelt_begrunnelse, ...rest } = a; return rest; };
 
@@ -1091,14 +1174,16 @@ function vRediger() {
           <input data-p="${bi},${pi}" data-pf="beskrivelse" value="${esc(p.beskrivelse)}" placeholder="Hva skal gjøres" aria-label="Beskrivelse">
           <input data-p="${bi},${pi}" data-pf="mengde" value="${esc(p.mengde)}" inputmode="decimal" aria-label="Mengde">
           <select data-p="${bi},${pi}" data-pf="enhet" aria-label="Enhet">${ENHETER.map(f => `<option ${f === p.enhet ? 'selected' : ''}>${f}</option>`).join('')}</select>
-          <input data-k="${p.id}" value="${esc(u.kalkyle[p.id] ?? '')}" inputmode="decimal" placeholder="kr/enhet" aria-label="Kalkyle per enhet">
-          <span class="ls num" id="ls-${p.id}">${isNum(e) && isNum(m) ? kr(e * m) : '–'}</span>
+          <input data-k="${esc(p.id)}" value="${esc(u.kalkyle[p.id] ?? '')}" inputmode="decimal" placeholder="kr/enhet" aria-label="Kalkyle per enhet">
+          <span class="ls num" id="ls-${esc(p.id)}">${isNum(e) && isNum(m) ? kr(e * m) : '–'}</span>
           <button class="ghost" data-act="slettPost" data-bi="${bi}" data-pi="${pi}" aria-label="Fjern post" ${b.poster.length < 2 ? 'disabled' : ''}>×</button></div>`; }).join('')}
       </div>
       <div class="row" style="padding:10px 12px"><button class="small" data-act="nyPost" data-bi="${bi}">+ Post</button></div>
     </div>`).join('');
   return `<button class="link back" data-act="liste">← Alle anbud</button>
     <div class="row between"><h1>${u.id ? 'Rediger utkast' : 'Nytt anbud'}</h1><span class="chip utkast">utkast</span></div>
+    ${S.bekreft === 'forlat' ? `<div class="confirm" role="alert"><strong>Du har endringer som ikke er lagret</strong><p>Går du videre nå, mister du det du har skrevet siden sist du lagret.</p>
+      <div class="row"><button class="pri" data-act="lagre">Lagre utkast</button><button class="danger" data-act="forlat">Gå videre uten å lagre</button><button data-act="avbryt">Bli her</button></div></div>` : ''}
     ${feilBoks()}
     ${steg(1, 'Saken', '', `<div class="grid2">
         ${fld('skadenr', 'Skadenummer', { ph: 'SB-2026-00000' })}
@@ -1122,8 +1207,10 @@ function vRediger() {
       </div>`)}
     ${steg(4, 'Beskrivelse av arbeidet', 'Skriv det leverandøren trenger for å gi riktig pris.', `
       ${fld('beskrivelse', 'Arbeidsomfang', { area: 6, ph: 'Hva har skjedd, og hva skal gjøres', help: 'Ikke skriv kundens navn eller telefon. Leverandøren får kontaktinfo når oppdraget er tildelt.' })}
+      ${arbeidHtml(u)}
       ${fld('saerlige_forhold', 'Særlige forhold', { area: 2, opt: true, ph: 'F.eks. sanering er tildelt annen leverandør og utføres før riving.' })}
       <div class="krav"><strong>Faste krav som alltid gjelder</strong><ul>${FASTE_KRAV.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>
+      ${stdHtml(u)}
       <label class="bekreft"><input type="checkbox" data-fk ${u.krev_fremdrift ? 'checked' : ''}>
         <span><strong>Leverandøren må fylle ut fremdriftsplan</strong> (anbefalt). En enkel plan i uker for hele saken. Byggetiden regnes ut fra planen, så den stemmer alltid.</span></label>`)}
     ${steg(5, 'Bygninger og poster', 'Legg inn hvert bygg med poster og mengder. Leverandøren fyller bare inn pris per enhet. Kalkylen din vises aldri for leverandørene.', `
@@ -1147,7 +1234,7 @@ function fld(k, label, o = {}) {
   const u = S.utkast, v = u[k] ?? '';
   const verdi = o.type === 'datetime-local' ? (v ? tilLokal(v) : '') : v;
   const lbl = `<span>${label}${o.opt ? ' <em>(valgfritt)</em>' : ''}</span>`;
-  const felt = o.area ? `<textarea data-f="${k}" rows="${o.area}" placeholder="${esc(o.ph || '')}">${esc(verdi)}</textarea>`
+  const felt = o.area ? `<textarea data-f="${k}" rows="${Math.max(o.area, Math.min(18, String(verdi).split('\n').length + 1))}" placeholder="${esc(o.ph || '')}">${esc(verdi)}</textarea>`
     : `<input data-f="${k}" type="${o.type || 'text'}" value="${esc(verdi)}" placeholder="${esc(o.ph || '')}">`;
   return `<label class="f${o.full || o.area ? ' full' : ''}">${lbl}${felt}${o.help ? `<span class="hint">${esc(o.help)}</span>` : ''}</label>`;
 }
@@ -1163,7 +1250,7 @@ function sjekkUtkast(u, forUtsending) {
     if (!epostOk(u.takst_epost)) f.push('Skriv inn en gyldig e-post for spørsmål (steg 2).');
     if (!u.vedstaelse) f.push('Velg vedståelsesfrist (steg 3).');
     if (!trim(u.beskrivelse)) f.push('Beskriv arbeidsomfanget (steg 4).');
-    if (!trim(u.tildelingsregel)) f.push('Skriv tildelingsregel (steg 6).');
+    if (!trim(u.tildelingsregel)) f.push('Skriv tildelingsregel (steg 7).');
   }
   if (u.frist && u.vedstaelse && u.vedstaelse < dagFra(u.frist)) f.push('Vedståelsesfristen kan ikke være før tilbudsfristen.');
   if (u.frist && u.frist_sporsmal && u.frist_sporsmal > dagFra(u.frist)) f.push('Frist for spørsmål må være før tilbudsfristen.');
@@ -1180,8 +1267,8 @@ function utkastForLagring(u) {
   const tekst = ['skadenr', 'adresse', 'tittel', 'beskrivelse', 'saerlige_forhold', 'takst_navn', 'takst_firma', 'takst_epost', 'takst_tlf', 'oppmote', 'onsket_ferdig', 'tildelingsregel'];
   return { ...u, ...Object.fromEntries(tekst.map(k => [k, trim(u[k])])), frist: new Date(u.frist).toISOString(),
     befaring: u.befaring ? new Date(u.befaring).toISOString() : null, frist_sporsmal: u.frist_sporsmal || null, vedstaelse: u.vedstaelse || null,
-    bygg: u.bygg.map(b => ({ ...b, navn: trim(b.navn), poster: b.poster.map(p => ({ ...p, beskrivelse: trim(p.beskrivelse), mengde: String(p.mengde).trim() })) })),
-    kalkyle, kalkyle_sum: ks.mangler ? null : ks.sum };
+    bygg: u.bygg.map(b => ({ ...b, navn: trim(b.navn), poster: b.poster.map(p => ({ ...p, beskrivelse: trim(p.beskrivelse), mengde: renMengde(p.mengde) })) })),
+    kalkyle, kalkyle_sum: ks.mangler ? null : ks.sum, standardtekster: STANDARDTEKSTER.filter(x => (u.standardtekster || []).includes(x)) };
 }
 
 // Alle forbehold i et tilbud: [[byggnavn eller '', tekst], …]
@@ -1242,6 +1329,7 @@ function anbudDeler(a) {
     arbeid: `<div class="stack"><h3>Arbeidsomfang</h3><p class="omfang">${esc(a.beskrivelse)}</p></div>
       ${trim(a.saerlige_forhold) ? `<div class="box warn"><strong>Særlige forhold:</strong> ${esc(a.saerlige_forhold)}</div>` : ''}`,
     krav: `<div class="stack"><h3>Krav</h3><ul class="krav-liste">${[...FASTE_KRAV, ...(a.krev_fremdrift ? ['Fremdriftsplan for hele saken skal fylles ut i portalen.'] : [])].map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>
+      ${(a.standardtekster || []).length ? `<div class="stack"><h3>Presiseringer</h3><ul class="krav-liste">${a.standardtekster.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>` : ''}
       <div class="stack"><h3>Tildeling</h3><p class="omfang">${esc(a.tildelingsregel)}</p></div>`
   };
 }
@@ -1378,6 +1466,9 @@ function vInviter(a) {
 
 /* ---------- anbefaling (takstmann) og tildeling (admin) ---------- */
 const valgtNaa = () => S.valgt ?? S.aktiv?.anbud?.anbefalt_invitasjon ?? null;
+// Begrunnelsen sendes bare når det valgte tilbudet ikke er det laveste. Ellers ville en gammel tekst følge med usett.
+const begrunnelseNaa = () => { const t = S.aktiv?.tilbud || [], v = t.find(x => x.invitasjon_id === valgtNaa());
+  return v && v.sum_eks_mva > Math.min(...t.map(x => x.sum_eks_mva)) ? trim(S.begrunnelse) || null : null; };
 function vBeslutning(a, sortert, valgtT, trengerBegr) {
   const anbefalt = sortert.find(x => x.invitasjon_id === a.anbefalt_invitasjon);
   const begr = (tekst) => trengerBegr ? `<label class="f">${tekst}<textarea id="begr" placeholder="For eksempel: kortere byggetid, færre forbehold, bedre referanser">${esc(S.begrunnelse)}</textarea></label>` : '';
@@ -1446,7 +1537,7 @@ function vStatus() {
       ? `<strong>Vi vurderer tilbudene nå.</strong><span>Tilbudsfristen har gått ut. Du får beskjed når vi har valgt entreprenør.</span>`
       : `<strong>Vi henter inn tilbud fra flere entreprenører.</strong><span>Slik sikrer vi at jobben blir gjort riktig og til riktig pris. Tilbudsfristen er ${dato(a.frist)}. Når vi har valgt entreprenør, får du beskjed om hvem som skal gjøre jobben, og når de kan starte.</span>
         ${befaringSenere ? `<span>Entreprenørene kommer på befaring <strong>${dato(a.befaring)}</strong>${trim(a.oppmote) ? ` (oppmøte: ${esc(a.oppmote)})` : ''}. Det er fint om du eller noen andre kan være til stede og låse dem inn.</span>` : ''}`;
-  const kontakt = [esc(p.navn || p.epost), esc(trim(p.firma) || 'Storebrand'), esc(p.telefon), trim(p.epost) ? esc(p.epost) : ''].filter(trim).join(' · ');
+  const kontakt = [...new Set([p.navn || p.epost, trim(p.firma) || 'Storebrand', p.telefon, p.epost].map(trim).filter(Boolean))].map(esc).join(' · ');
   return `<div class="st-verktoy noprint">
       <button class="link back" data-act="tilAnbud">← Tilbake til anbudet</button>
       <div class="box info small">Dette er en oversikt du kan sende til forsikringstaker. Den har ingen priser og ingen andre tilbud. Kundens navn står ikke her. Skriv det i e-posten.</div>
@@ -1472,7 +1563,7 @@ function vStatus() {
         ${valgt.fremdrift?.faser?.length ? `<section><h2>Plan for arbeidet</h2>
           ${tidslinje(valgt.fremdrift.faser.map(f => ({ ...f, start: Number(f.start), uker: Number(f.uker) })), { oppstart: valgt.oppstart })}
           ${valgt.fremdrift.faser.some(f => f.id === 'torking') ? '<span class="small">«Uttørking og venting» betyr at det må tørke før arbeidet kan fortsette. Da skjer det lite på stedet, men rommet kan ikke brukes.</span>' : ''}</section>` : ''}` : ''}
-      <section><h2>Hva som skal gjøres</h2><strong>${esc(a.tittel)}</strong><p class="omfang" style="margin:0">${esc(a.beskrivelse)}</p></section>
+      <section><h2>Hva som skal gjøres</h2><strong>${esc(a.tittel)}</strong><p class="omfang" style="margin:0">${esc(utenArbeidstekster(a.beskrivelse))}</p></section>
       <section><h2>Spørsmål om saken?</h2><span>Kontakt ${kontakt}</span></section>
       <div class="st-fot">Datoene er foreløpige og kan endre seg, for eksempel hvis det tar lengre tid å tørke ut, eller hvis det dukker opp skjulte skader. Vi gir beskjed hvis noe endrer seg mye.</div>
     </article>`;
@@ -1644,7 +1735,7 @@ function vAar() {
   const sum = k => tild.reduce((s, x) => s + (Number(x[k]) || 0), 0);
   const bk = sum('besparelse_mot_kalkyle'), bs = sum('besparelse_mot_snitt'), ts = sum('tildelt_sum'), ks = sum('kalkyle_sum');
   const tsv = ['Skadenr\tSkadetype\tStatus\tKalkyle\tAntall tilbud\tLaveste\tSnitt\tTildelt\tBesparelse mot kalkyle\tBesparelse mot snitt',
-    ...r.map(x => [x.skadenr, x.skadetype, x.status, x.kalkyle_sum, x.antall_tilbud, x.laveste, x.snitt == null ? '' : Math.round(x.snitt), x.tildelt_sum, x.besparelse_mot_kalkyle, x.besparelse_mot_snitt == null ? '' : Math.round(x.besparelse_mot_snitt)].map(v => v == null ? '' : String(v).replace('.', ',')).join('\t'))].join('\n');
+    ...r.map(x => [x.skadenr, x.skadetype, x.status, tall(x.kalkyle_sum), tall(x.antall_tilbud), tall(x.laveste), x.snitt == null ? '' : Math.round(x.snitt), tall(x.tildelt_sum), tall(x.besparelse_mot_kalkyle), x.besparelse_mot_snitt == null ? '' : Math.round(x.besparelse_mot_snitt)].map(v => v == null ? '' : typeof v === 'number' ? String(v).replace('.', ',') : String(v).replace(/[\t\n]/g, ' ')).join('\t'))].join('\n');
   S._tsv = tsv;
   return `<div class="row between"><h1>Årsoversikt</h1>
     ${aarListe.length > 1 ? `<select id="aarvalg" style="width:auto">${aarListe.map(y => `<option ${y === valgtAar ? 'selected' : ''}>${y}</option>`).join('')}</select>` : `<span class="mono">${valgtAar ?? ''}</span>`}</div>
@@ -1721,9 +1812,9 @@ function vLev() {
   const poster = a.bygg.map((b, bi) => `<div class="bygg"><div class="bygg-h"><span class="pnr">${bi + 1}</span><h3>${esc(b.navn)}</h3></div>
     ${b.poster.map((p, pi) => { const e = parseNum(f.priser[p.id]), m = parseNum(p.mengde);
       return `<div class="lev-post"><div><span class="pnr">${postNr(bi, pi)}</span> ${esc(p.beskrivelse)}<div class="q">${esc(p.fag)} · ${esc(p.mengde)} ${esc(p.enhet)}</div></div>
-        <div class="pin"><input data-lp="${p.id}" value="${esc(f.priser[p.id] ?? '')}" inputmode="decimal" placeholder="0" aria-label="Pris per ${esc(p.enhet)} for post ${postNr(bi, pi)}" ${ro}><span class="small muted">kr/${esc(p.enhet)}</span></div>
-        <div class="ls num" id="lls-${p.id}">${isNum(e) && isNum(m) ? kr(e * m) : ''}</div></div>`; }).join('')}
-    <label class="f lev-fb"><span>Forbehold for ${esc(b.navn)} <em>(valgfritt)</em></span><textarea data-lfb="${b.id}" rows="2" ${ro} placeholder="Bare forbehold som gjelder dette bygget.">${esc(f.forbehold_bygg[b.id] || '')}</textarea></label>
+        <div class="pin"><input data-lp="${esc(p.id)}" value="${esc(f.priser[p.id] ?? '')}" inputmode="decimal" placeholder="0" aria-label="Pris per ${esc(p.enhet)} for post ${postNr(bi, pi)}" ${ro}><span class="small muted">kr/${esc(p.enhet)}</span></div>
+        <div class="ls num" id="lls-${esc(p.id)}">${isNum(e) && isNum(m) ? kr(e * m) : ''}</div></div>`; }).join('')}
+    <label class="f lev-fb"><span>Forbehold for ${esc(b.navn)} <em>(valgfritt)</em></span><textarea data-lfb="${esc(b.id)}" rows="2" ${ro} placeholder="Bare forbehold som gjelder dette bygget.">${esc(f.forbehold_bygg[b.id] || '')}</textarea></label>
     </div>`).join('');
   const d = anbudDeler(a);
   const forrige = L.data.forrige_besok ? new Date(L.data.forrige_besok) : null;
@@ -1840,7 +1931,7 @@ async function visListe() { S.liste = await api.listAnbud(); S.view = 'liste'; S
 async function aapneAnbud(id) {
   const d = await api.hentAnbud(id);
   S.bekreft = null; S.nyKode = null; S.valgt = null; S.begrunnelse = d.anbud.anbefalt_begrunnelse || ''; S.qaUtkast = {}; S.avklaring = ''; S.invUtkast = null; S.qaFilter = 'alle'; S.vedleggFeil = []; S.lasterOpp = null; S.visInviter = false; S.visAvklaring = false; S.endreKat = null; apne.clear();
-  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S.view = 'rediger'; }
+  if (d.anbud.status === 'utkast') { S.utkastVedlegg = d.vedlegg || []; S.utkast = { ...d.anbud, kalkyle: Object.fromEntries(Object.entries(d.anbud.kalkyle || {}).map(([k, v]) => [k, String(v).replace('.', ',')])) }; S._arbPos = null; huskUtkast(); S.view = 'rediger'; }
   else { S.aktiv = d; S.view = 'anbud'; }
   render();
 }
@@ -1873,11 +1964,13 @@ document.addEventListener('click', e => {
       delete S.brukerUtkast[id]; S.sesjon = await api.sesjon(); toast('Brukeren er lagret');
       if (!erAdmin()) return tilAdmin(); await visBrukere(true); }),
     spørAnbefal: () => { S.bekreft = 'anbefal'; keep(); },
-    anbefal: () => jobb(async () => { await api.anbefal(S.aktiv.anbud.id, valgtNaa(), trim(S.begrunnelse) || null); toast('Anbefalingen er sendt til Storebrand'); await aapneAnbud(S.aktiv.anbud.id); }),
+    anbefal: () => jobb(async () => { await api.anbefal(S.aktiv.anbud.id, valgtNaa(), begrunnelseNaa()); toast('Anbefalingen er sendt til Storebrand'); await aapneAnbud(S.aktiv.anbud.id); }),
     liste: () => jobb(visListe),
     aar: () => jobb(async () => { S.aar = await api.aarsoversikt(); S.view = 'aar'; render(); }),
     aapne: () => jobb(() => aapneAnbud(id)),
-    nytt: () => { S.utkast = tom(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    nytt: () => { S.utkast = tom(); S._arbPos = null; huskUtkast(); S.utkastVedlegg = []; S.vedleggFeil = []; S.view = 'rediger'; S.feil = []; S.bekreft = null; render(); },
+    arbeidstekst: () => { const u = S.utkast, r = vekslArbeidstekst(u.beskrivelse, ARBEIDSTEKSTER[+el.dataset.i][1], S._arbPos); u.beskrivelse = r.tekst; S._arbPos = r.pos;
+      const felt = $('[data-f="beskrivelse"]'); if (felt) { felt.value = u.beskrivelse; felt.rows = Math.max(6, Math.min(18, u.beskrivelse.split('\n').length + 1)); } oppdaterArbeidKnapper(); },
     spørFjernV: () => { S.bekreft = 'fjernV:' + id; keep(); },
     fjernV: () => jobb(async () => { const { anbud, liste } = vedleggSted(); const v = liste.find(x => x.id === id);
       await api.fjernVedlegg(v, anbud.status); S.bekreft = null; S.vedleggFeil = []; await lastVedleggPaaNytt(anbud.id); toast('Vedlegget er fjernet'); keep(); }),
@@ -1899,11 +1992,12 @@ document.addEventListener('click', e => {
     spørSend: () => { const f = sjekkUtkast(S.utkast, true); S.feil = f; S.bekreft = f.length ? null : 'send'; keep(); },
     sendUt: () => lagreUtkast(true),
     spørSlett: () => { S.bekreft = 'slett'; keep(); },
+    forlat: () => { S._forlatOk = true; S.bekreft = null; $(`#bar [data-act="${S._forlat}"]`)?.click(); },
     slettAnbud: () => jobb(async () => { await api.slettAnbud(S.utkast.id); toast('Utkastet er slettet'); await visListe(); }),
     avbryt: () => { S.bekreft = null; keep(); },
     velg: () => { S.valgt = id; S.bekreft = null; keep(); },
     spørTildel: () => { S.bekreft = 'tildel'; keep(); },
-    tildel: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'tildelt', { tildelt_invitasjon: valgtNaa(), tildelt_begrunnelse: trim(S.begrunnelse) || null }); toast('Oppdraget er tildelt'); await aapneAnbud(S.aktiv.anbud.id); }),
+    tildel: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'tildelt', { tildelt_invitasjon: valgtNaa(), tildelt_begrunnelse: begrunnelseNaa() }); toast('Oppdraget er tildelt'); await aapneAnbud(S.aktiv.anbud.id); }),
     spørAvlys: () => { S.bekreft = 'avlys'; keep(); },
     avlys: () => jobb(async () => { await api.settStatus(S.aktiv.anbud.id, 'avlyst'); toast('Anbudet er avlyst'); await aapneAnbud(S.aktiv.anbud.id); }),
     spørSlettInv: () => { S.bekreft = 'slettInv:' + id; keep(); },
@@ -1960,17 +2054,25 @@ document.addEventListener('click', e => {
     levut: () => { S.lev = null; S.feil = []; S._kodeFyll = ''; if (location.hash === '#intern' && harTilgang()) return jobb(visListe); S.view = 'start'; render(); },
     skrivUt: () => window.print()
   }[act];
+  if (h && FORLATER.includes(act) && !S._forlatOk && utkastEndret()) { e.preventDefault(); S.bekreft = 'forlat'; S._forlat = act; S.feil = []; return render(); }
+  S._forlatOk = false;
   if (h) { if (el.tagName !== 'INPUT') e.preventDefault(); h(); }
 });
 function keep() { S._scroll = window.scrollY; render(); }
+// Utkastet slik det var sist det ble åpnet eller lagret. Brukes til å advare før endringer går tapt.
+const huskUtkast = () => { S.utkastLagret = JSON.stringify(S.utkast); };
+const utkastEndret = () => S.view === 'rediger' && !!S.utkast && JSON.stringify(S.utkast) !== S.utkastLagret;
+const FORLATER = ['liste', 'aar', 'brukere', 'loggut'];
+window.addEventListener('beforeunload', e => { if (utkastEndret()) { e.preventDefault(); e.returnValue = ''; } });
 
 async function lagreUtkast(sendUt) {
   const f = sjekkUtkast(S.utkast, sendUt);
   if (f.length) { S.feil = f; S.bekreft = null; return keep(); }
   await jobb(async () => {
     const lagret = await api.lagreAnbud(utkastForLagring(S.utkast));
+    S.utkast.id = lagret.id; huskUtkast();   // med en gang, så et nytt forsøk ikke lager et anbud til
     if (sendUt) { await api.settStatus(lagret.id, 'utsendt'); toast('Anbudet er sendt ut. Nå kan du invitere leverandører.'); await aapneAnbud(lagret.id); }
-    else { S.utkast.id = lagret.id; toast('Utkastet er lagret'); keep(); }
+    else { S.bekreft = null; toast('Utkastet er lagret'); keep(); }
   });
 }
 // Vedleggene hører til utkastet når vi redigerer, ellers til anbudet som er åpent
@@ -2030,7 +2132,7 @@ async function levSend() {
       byggetid_uker: plan ? plan.slutt : parseNum(f.byggetid_uker), timepris: parseNum(f.timepris), bekreftet: f.bekreftet === true,
       fremdrift: plan ? { faser: plan.faser, kommentar: trim(planKommentar) } : null });
     if (!r.ok) { S.feil = [r.feil]; return keep(); }
-    if (r.byggetid_uker != null) S.lev.form.byggetid_uker = String(r.byggetid_uker);
+    if (r.byggetid_uker != null) S.lev.form.byggetid_uker = String(r.byggetid_uker).replace('.', ',');
     S.lev.kvittering = r; S.lev.form.priser = Object.fromEntries(Object.entries(priser).map(([k, v]) => [k, v]));
     S.view = 'kvittering'; render();
   });
@@ -2084,9 +2186,12 @@ document.addEventListener('input', e => {
     if (t.dataset.fs) v.start = t.value; else v.uker = t.value;
     $('#planUke-' + id).textContent = planUke(v); oppdaterPlanVisning(); return; }
   if (t.dataset.fk !== undefined) { S.utkast.krev_fremdrift = t.checked; return; }
+  if (t.dataset.std !== undefined) { const tekst = STANDARDTEKSTER[+t.dataset.std], v = S.utkast.standardtekster || [];
+    S.utkast.standardtekster = t.checked ? STANDARDTEKSTER.filter(x => x === tekst || v.includes(x)) : v.filter(x => x !== tekst); return; }
   if (t.id === 'aarvalg') return;
   const u = S.utkast;
-  if (t.dataset.f) { u[t.dataset.f] = t.type === 'datetime-local' ? (t.value ? new Date(t.value).toISOString() : '') : t.value; return; }
+  if (t.dataset.f) { u[t.dataset.f] = t.type === 'datetime-local' ? (t.value ? new Date(t.value).toISOString() : '') : t.value;
+    if (t.dataset.f === 'beskrivelse') oppdaterArbeidKnapper(); return; }
   if (t.dataset.lfb) { S.lev.form.forbehold_bygg[t.dataset.lfb] = t.value; return; }
   if (t.dataset.lf === 'bekreftet') { S.lev.form.bekreftet = t.checked;
     const før = S.feil.length; S.feil = S.feil.filter(x => !x.startsWith('Kryss av')); if (S.feil.length !== før) keep(); return; }
@@ -2105,11 +2210,13 @@ document.addEventListener('input', e => {
     if (t.dataset.lf === 'orgnr') { const ok = !t.value || orgnrGyldig(t.value.replace(/\s/g, '')); const ferdig = t.value.replace(/\s/g, '').length >= 9;
       t.classList.toggle('bad', !ok && ferdig); $('#orgfeil').textContent = !ok && ferdig ? 'Sjekk nummeret – det er ikke et gyldig org.nr.' : ''; }
     if (t.dataset.lp) { const a = S.lev.data.anbud; const p = a.bygg.flatMap(b => b.poster).find(x => x.id === t.dataset.lp);
-      const e2 = parseNum(t.value), m = parseNum(p.mengde); $('#lls-' + p.id).textContent = isNum(e2) && isNum(m) ? kr(e2 * m) : '';
+      const e2 = parseNum(t.value), m = parseNum(p.mengde); document.getElementById('lls-' + p.id).textContent = isNum(e2) && isNum(m) ? kr(e2 * m) : '';
       const s = sumAnbud(a.bygg, f.priser); $('#lsum').textContent = kr(s.sum); $('#lsum2').textContent = kr(s.sum); $('#lmva').textContent = 'Inkl. mva: ' + kr(s.sum * (1 + MVA));
       $('#lmangler').textContent = s.mangler ? `${s.mangler} post(er) mangler pris` : ''; }
   }
 });
+// Husker hvor markøren sto i arbeidsomfanget, så en standardtekst kan settes inn der
+document.addEventListener('focusout', e => { if (e.target?.dataset?.f === 'beskrivelse') S._arbPos = e.target.selectionStart; });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'aarvalg') { S.valgtAar = +t.value; render(); }
